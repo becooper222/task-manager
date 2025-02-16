@@ -24,7 +24,9 @@ export default function Login() {
       })
 
       if (error) throw error
-      router.push('/dashboard')
+
+      // Refresh the page to let middleware handle the redirect
+      window.location.reload()
     } catch (error: any) {
       setError(error.message)
     } finally {
@@ -55,7 +57,14 @@ export default function Login() {
             Sign in to your account
           </h2>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+        <form 
+          className="mt-8 space-y-6" 
+          onSubmit={(e) => {
+            console.log('Form submit event triggered')
+            handleLogin(e)
+          }}
+          method="POST"
+        >
           {error && (
             <div className="text-red-500 text-sm text-center">{error}</div>
           )}
@@ -106,6 +115,12 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
+              onClick={(e) => {
+                console.log('Submit button clicked')
+                if (!loading) {
+                  handleLogin(e)
+                }
+              }}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               {loading ? 'Signing in...' : 'Sign in'}
