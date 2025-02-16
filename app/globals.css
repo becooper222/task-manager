@@ -3,19 +3,38 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #1a1a1a;
+  --foreground: #ffffff;
+  --primary: #2a2a2a;
+  --secondary: #333333;
+  --accent: #404040;
+  --text-primary: #ffffff;
+  --text-secondary: #cccccc;
 }
 
 body {
-  color: var(--foreground);
+  color: var(--text-primary);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Add some custom styles for the interface elements */
+.task-input {
+  background-color: var(--primary);
+  border: 1px solid var(--accent);
+  color: var(--text-primary);
+}
+
+.category-button {
+  background-color: var(--primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s;
+}
+
+.category-button:hover {
+  background-color: var(--accent);
+}
+
+.category-button.active {
+  background-color: var(--accent);
 }
