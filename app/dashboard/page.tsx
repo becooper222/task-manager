@@ -12,6 +12,7 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [newTaskName, setNewTaskName] = useState('')
+  const [newTaskDescription, setNewTaskDescription] = useState('')
   const [newTaskDate, setNewTaskDate] = useState(new Date().toISOString().split('T')[0])
   const [loading, setLoading] = useState(true)
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -69,6 +70,7 @@ export default function Dashboard() {
           user_id: user.id,
           category_id: selectedCategory,
           name: newTaskName,
+          description: newTaskDescription || undefined,
           date: newTaskDate,
           completed: false,
           favorited: false,
@@ -77,6 +79,7 @@ export default function Dashboard() {
 
       if (error) throw error
       setNewTaskName('')
+      setNewTaskDescription('')
       fetchTasks()
     } catch (error) {
       console.error('Error adding task:', error)
@@ -503,8 +506,15 @@ export default function Dashboard() {
               type="text"
               value={newTaskName}
               onChange={(e) => setNewTaskName(e.target.value)}
-              placeholder="Add a new task..."
+              placeholder="Task title..."
               className="w-full p-3 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+            <textarea
+              value={newTaskDescription}
+              onChange={(e) => setNewTaskDescription(e.target.value)}
+              placeholder="Task description (optional)..."
+              rows={3}
+              className="w-full p-3 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
             />
             <div className="grid grid-cols-2 gap-2">
               <select
@@ -537,41 +547,52 @@ export default function Dashboard() {
           </form>
 
           {/* Add Task Form - Desktop */}
-          <form onSubmit={handleAddTask} className="hidden lg:flex mb-6 gap-2">
-            <input
-              type="text"
-              value={newTaskName}
-              onChange={(e) => setNewTaskName(e.target.value)}
-              placeholder="Add a new task..."
-              className="flex-1 p-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-            <select
-              value={selectedCategory === 'overview' ? '' : selectedCategory || ''}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="p-2 border border-accent rounded-md bg-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-              required
-            >
-              <option value="" disabled>Select category</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="date"
-              value={newTaskDate}
-              onChange={(e) => setNewTaskDate(e.target.value)}
-              className="p-2 border border-accent rounded-md bg-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-            <button
-              type="submit"
-              disabled={!selectedCategory || selectedCategory === 'overview'}
-              className="bg-accent text-text-primary px-4 py-2 rounded-md hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Add Task
-            </button>
-          </form>
+          <div className="hidden lg:block mb-6">
+            <form onSubmit={handleAddTask} className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newTaskName}
+                  onChange={(e) => setNewTaskName(e.target.value)}
+                  placeholder="Task title..."
+                  className="flex-1 p-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+                <select
+                  value={selectedCategory === 'overview' ? '' : selectedCategory || ''}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="p-2 border border-accent rounded-md bg-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                  required
+                >
+                  <option value="" disabled>Select category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  value={newTaskDate}
+                  onChange={(e) => setNewTaskDate(e.target.value)}
+                  className="p-2 border border-accent rounded-md bg-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+                <button
+                  type="submit"
+                  disabled={!selectedCategory || selectedCategory === 'overview'}
+                  className="bg-accent text-text-primary px-4 py-2 rounded-md hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add Task
+                </button>
+              </div>
+              <textarea
+                value={newTaskDescription}
+                onChange={(e) => setNewTaskDescription(e.target.value)}
+                placeholder="Task description (optional)..."
+                rows={2}
+                className="w-full p-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+              />
+            </form>
+          </div>
 
           <div className="space-y-4">
             <TaskList
@@ -614,7 +635,9 @@ function TaskList({
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const [editingTask, setEditingTask] = useState<string | null>(null)
   const [editedTaskName, setEditedTaskName] = useState('')
+  const [editedTaskDescription, setEditedTaskDescription] = useState('')
   const [editedTaskDate, setEditedTaskDate] = useState('')
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set())
 
   const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
     try {
@@ -634,7 +657,25 @@ function TaskList({
   const startEditing = (task: Task) => {
     setEditingTask(task.id)
     setEditedTaskName(task.name)
+    setEditedTaskDescription(task.description || '')
     setEditedTaskDate(task.date)
+  }
+
+  const toggleTaskExpansion = (taskId: string) => {
+    setExpandedTasks(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(taskId)) {
+        newSet.delete(taskId)
+      } else {
+        newSet.add(taskId)
+      }
+      return newSet
+    })
+  }
+
+  const truncateText = (text: string, maxLength: number = 50) => {
+    if (text.length <= maxLength) return text
+    return text.substring(0, maxLength) + '...'
   }
 
   const getCategoryName = (categoryId: string) => {
@@ -653,11 +694,11 @@ function TaskList({
       </button>
       
       {!collapsed && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {tasks.map((task) => (
             <div
               key={task.id}
-              className="flex items-center justify-between p-3 hover:bg-secondary rounded-md transition-colors"
+              className={`flex ${expandedTasks.has(task.id) && task.description ? 'items-start' : 'items-center'} justify-between p-3 hover:bg-secondary rounded-md transition-colors ${expandedTasks.has(task.id) && task.description ? 'pb-4' : ''}`}
             >
               <div className="flex items-center space-x-3 flex-grow min-w-0">
                 <input
@@ -669,24 +710,35 @@ function TaskList({
                   className="h-5 w-5 bg-secondary border-accent rounded focus:ring-2 focus:ring-accent"
                 />
                 {editingTask === task.id ? (
-                  <div className="flex flex-col lg:flex-row space-y-2 lg:space-y-0 lg:space-x-2 flex-grow">
-                    <input
-                      type="text"
-                      value={editedTaskName}
-                      onChange={(e) => setEditedTaskName(e.target.value)}
-                      className="flex-grow p-2 bg-secondary border border-accent rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-                      autoFocus
-                    />
-                    <input
-                      type="date"
-                      value={editedTaskDate}
-                      onChange={(e) => setEditedTaskDate(e.target.value)}
-                      className="p-2 bg-secondary border border-accent rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                  <div className="flex flex-col space-y-2 flex-grow">
+                    <div className="flex flex-col lg:flex-row space-y-2 lg:space-y-0 lg:space-x-2">
+                      <input
+                        type="text"
+                        value={editedTaskName}
+                        onChange={(e) => setEditedTaskName(e.target.value)}
+                        placeholder="Task title"
+                        className="flex-grow p-2 bg-secondary border border-accent rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                        autoFocus
+                      />
+                      <input
+                        type="date"
+                        value={editedTaskDate}
+                        onChange={(e) => setEditedTaskDate(e.target.value)}
+                        className="p-2 bg-secondary border border-accent rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                      />
+                    </div>
+                    <textarea
+                      value={editedTaskDescription}
+                      onChange={(e) => setEditedTaskDescription(e.target.value)}
+                      placeholder="Task description (optional)"
+                      rows={3}
+                      className="w-full p-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                     />
                     <div className="flex space-x-2">
                       <button
                         onClick={() => handleTaskUpdate(task.id, { 
                           name: editedTaskName,
+                          description: editedTaskDescription || undefined,
                           date: editedTaskDate
                         })}
                         className="px-3 py-2 bg-accent text-text-primary rounded-md hover:bg-secondary"
@@ -702,14 +754,33 @@ function TaskList({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col lg:flex-row lg:items-center space-y-1 lg:space-y-0 lg:space-x-3 flex-grow min-w-0">
-                    <span className={`${task.completed ? 'line-through text-text-secondary' : 'text-text-primary'} truncate`}>
-                      {task.name}
-                    </span>
-                    <span className="text-sm text-text-secondary">{task.date}</span>
-                    <span className="text-xs px-2 py-1 bg-secondary rounded-full text-text-secondary whitespace-nowrap">
-                      {getCategoryName(task.category_id)}
-                    </span>
+                  <div className="flex flex-col space-y-2 flex-grow min-w-0">
+                    <div 
+                      className={`flex flex-col lg:flex-row lg:items-center space-y-1 lg:space-y-0 lg:space-x-3 ${task.description ? 'cursor-pointer hover:bg-accent/10 rounded px-2 py-1 -mx-2 -my-1 transition-colors' : ''}`}
+                      onClick={() => task.description && toggleTaskExpansion(task.id)}
+                    >
+                      <span className={`${task.completed ? 'line-through text-text-secondary' : 'text-text-primary'} ${!expandedTasks.has(task.id) ? 'truncate' : ''}`}>
+                        {expandedTasks.has(task.id) ? task.name : truncateText(task.name)}
+                      </span>
+                      <div className="flex items-center space-x-2 lg:space-x-3">
+                        <span className="text-sm text-text-secondary">{task.date}</span>
+                        <span className="text-xs px-2 py-1 bg-secondary rounded-full text-text-secondary whitespace-nowrap">
+                          {getCategoryName(task.category_id)}
+                        </span>
+                        {task.description && (
+                          <span className="text-xs text-text-secondary">
+                            {expandedTasks.has(task.id) ? '▲' : '▼'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {expandedTasks.has(task.id) && task.description && (
+                      <div className="mt-2 p-3 bg-secondary/30 rounded-md border border-accent/30">
+                        <p className="text-text-primary text-sm whitespace-pre-wrap">
+                          {task.description}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
