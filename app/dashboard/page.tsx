@@ -695,139 +695,196 @@ function TaskList({
       
       {!collapsed && (
         <div className="space-y-3">
-          {tasks.map((task) => (
-            <div
-              key={task.id}
-              className={`flex ${expandedTasks.has(task.id) && task.description ? 'items-start' : 'items-center'} justify-between p-3 hover:bg-secondary rounded-md transition-colors ${expandedTasks.has(task.id) && task.description ? 'pb-4' : ''}`}
-            >
-              <div className="flex items-center space-x-3 flex-grow min-w-0">
-                <input
-                  type="checkbox"
-                  checked={task.completed}
-                  onChange={(e) =>
-                    handleTaskUpdate(task.id, { completed: e.target.checked })
-                  }
-                  className="h-5 w-5 bg-secondary border-accent rounded focus:ring-2 focus:ring-accent"
-                />
-                {editingTask === task.id ? (
-                  <div className="flex flex-col space-y-2 flex-grow">
-                    <div className="flex flex-col lg:flex-row space-y-2 lg:space-y-0 lg:space-x-2">
-                      <input
-                        type="text"
-                        value={editedTaskName}
-                        onChange={(e) => setEditedTaskName(e.target.value)}
-                        placeholder="Task title"
-                        className="flex-grow p-2 bg-secondary border border-accent rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-                        autoFocus
-                      />
-                      <input
-                        type="date"
-                        value={editedTaskDate}
-                        onChange={(e) => setEditedTaskDate(e.target.value)}
-                        className="p-2 bg-secondary border border-accent rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
-                      />
-                    </div>
-                    <textarea
-                      value={editedTaskDescription}
-                      onChange={(e) => setEditedTaskDescription(e.target.value)}
-                      placeholder="Task description (optional)"
-                      rows={3}
-                      className="w-full p-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                    />
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleTaskUpdate(task.id, { 
-                          name: editedTaskName,
-                          description: editedTaskDescription || undefined,
-                          date: editedTaskDate
-                        })}
-                        className="px-3 py-2 bg-accent text-text-primary rounded-md hover:bg-secondary"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setEditingTask(null)}
-                        className="px-3 py-2 bg-secondary text-text-primary rounded-md hover:bg-accent"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col space-y-2 flex-grow min-w-0">
-                    <div className="flex flex-col lg:flex-row lg:items-center space-y-1 lg:space-y-0 lg:space-x-3">
-                      <div 
-                        className={`flex-1 ${task.description ? 'cursor-pointer hover:bg-accent/10 rounded px-2 py-1 -mx-2 -my-1 transition-colors' : ''}`}
-                        onClick={() => task.description && toggleTaskExpansion(task.id)}
-                      >
-                        <span className={`${task.completed ? 'line-through text-text-secondary' : 'text-text-primary'} ${!expandedTasks.has(task.id) ? 'truncate' : ''}`}>
-                          {expandedTasks.has(task.id) ? task.name : truncateText(task.name)}
-                        </span>
-                        {task.description && !expandedTasks.has(task.id) && (
-                          <span className="ml-2 text-xs text-text-secondary opacity-60">
-                            (tap to expand)
-                          </span>
-                        )}
+          {tasks.map((task) => {
+            const MAX_TITLE_LENGTH = 60; // keep in sync with truncateText default
+            const isLongTitle = task.name.length > MAX_TITLE_LENGTH;
+            const isExpandable = !!task.description || isLongTitle;
+            return (
+              <div
+                key={task.id}
+                className={`flex ${expandedTasks.has(task.id) && task.description ? 'items-start' : 'items-center'} justify-between p-3 hover:bg-secondary rounded-md transition-colors ${expandedTasks.has(task.id) && task.description ? 'pb-4' : ''}`}
+              >
+                <div className="flex items-center space-x-3 flex-grow min-w-0">
+                  <input
+                    type="checkbox"
+                    checked={task.completed}
+                    onChange={(e) =>
+                      handleTaskUpdate(task.id, { completed: e.target.checked })
+                    }
+                    className="h-5 w-5 bg-secondary border-accent rounded focus:ring-2 focus:ring-accent"
+                  />
+                  {editingTask === task.id ? (
+                    <div className="flex flex-col space-y-2 flex-grow">
+                      <div className="flex flex-col lg:flex-row space-y-2 lg:space-y-0 lg:space-x-2">
+                        <input
+                          type="text"
+                          value={editedTaskName}
+                          onChange={(e) => setEditedTaskName(e.target.value)}
+                          placeholder="Task title"
+                          className="flex-grow p-2 bg-secondary border border-accent rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                          autoFocus
+                        />
+                        <input
+                          type="date"
+                          value={editedTaskDate}
+                          onChange={(e) => setEditedTaskDate(e.target.value)}
+                          className="p-2 bg-secondary border border-accent rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                        />
                       </div>
-                      <div className="flex items-center justify-between lg:justify-start space-x-2 lg:space-x-3">
-                        <div className="flex items-center space-x-2 lg:space-x-3">
-                          <span className="text-sm text-text-secondary">{task.date}</span>
-                          <span className="text-xs px-2 py-1 bg-secondary rounded-full text-text-secondary whitespace-nowrap">
-                            {getCategoryName(task.category_id)}
+                      <textarea
+                        value={editedTaskDescription}
+                        onChange={(e) => setEditedTaskDescription(e.target.value)}
+                        placeholder="Task description (optional)"
+                        rows={3}
+                        className="w-full p-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                      />
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleTaskUpdate(task.id, { 
+                            name: editedTaskName,
+                            description: editedTaskDescription || undefined,
+                            date: editedTaskDate
+                          })}
+                          className="px-3 py-2 bg-accent text-text-primary rounded-md hover:bg-secondary"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingTask(null)}
+                          className="px-3 py-2 bg-secondary text-text-primary rounded-md hover:bg-accent"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col space-y-2 flex-grow min-w-0">
+                      <div className="flex flex-col lg:flex-row lg:items-center space-y-1 lg:space-y-0 lg:space-x-3">
+                        <div 
+                          className={`flex-1 ${isExpandable ? 'cursor-pointer hover:bg-accent/10 rounded px-2 py-1 -mx-2 -my-1 transition-colors' : ''}`}
+                          onClick={() => isExpandable && toggleTaskExpansion(task.id)}
+                        >
+                          <span className={`${task.completed ? 'line-through text-text-secondary' : 'text-text-primary'} ${!expandedTasks.has(task.id) ? 'truncate' : ''}`}>
+                            {expandedTasks.has(task.id) ? task.name : truncateText(task.name)}
                           </span>
+                          {isExpandable && !expandedTasks.has(task.id) && (
+                            <span className="ml-2 text-xs text-text-secondary opacity-60">
+                              (tap to expand)
+                            </span>
+                          )}
                         </div>
-                        {task.description && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleTaskExpansion(task.id);
-                            }}
-                            className="lg:hidden flex items-center justify-center w-8 h-8 rounded-full bg-accent/20 hover:bg-accent/30 transition-colors"
-                            aria-label={expandedTasks.has(task.id) ? "Collapse task" : "Expand task"}
-                          >
-                            <span className="text-sm text-text-primary">
+                        <div className="flex items-center justify-between lg:justify-start space-x-2 lg:space-x-3">
+                          <div className="flex items-center space-x-2 lg:space-x-3">
+                            <span className="text-sm text-text-secondary">{task.date}</span>
+                            <span className="text-xs px-2 py-1 bg-secondary rounded-full text-text-secondary whitespace-nowrap">
+                              {getCategoryName(task.category_id)}
+                            </span>
+                          </div>
+                          {isExpandable && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleTaskExpansion(task.id);
+                              }}
+                              className="lg:hidden flex items-center justify-center w-8 h-8 rounded-full bg-accent/20 hover:bg-accent/30 transition-colors"
+                              aria-label={expandedTasks.has(task.id) ? "Collapse task" : "Expand task"}
+                            >
+                              <span className="text-sm text-text-primary">
+                                {expandedTasks.has(task.id) ? '▲' : '▼'}
+                              </span>
+                            </button>
+                          )}
+                          {isExpandable && (
+                            <span className="hidden lg:inline text-xs text-text-secondary">
                               {expandedTasks.has(task.id) ? '▲' : '▼'}
                             </span>
-                          </button>
-                        )}
-                        {task.description && (
-                          <span className="hidden lg:inline text-xs text-text-secondary">
-                            {expandedTasks.has(task.id) ? '▲' : '▼'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {expandedTasks.has(task.id) && task.description && (
-                      <div className="mt-3 p-4 bg-secondary/40 rounded-lg border border-accent/40 shadow-sm task-expand-enter">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-text-secondary uppercase tracking-wide">
-                            Description
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleTaskExpansion(task.id);
-                            }}
-                            className="text-xs text-text-secondary hover:text-text-primary transition-colors"
-                            aria-label="Collapse task"
-                          >
-                            Collapse ▲
-                          </button>
+                          )}
                         </div>
-                        <p className="text-text-primary text-sm leading-relaxed whitespace-pre-wrap">
-                          {task.description}
-                        </p>
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center space-x-1 lg:space-x-2 ml-2">
-                {!editingTask && (
+                      {expandedTasks.has(task.id) && task.description && (
+                        <div className="mt-3 p-4 bg-secondary/40 rounded-lg border border-accent/40 shadow-sm task-expand-enter">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+                              Description
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleTaskExpansion(task.id);
+                              }}
+                              className="text-xs text-text-secondary hover:text-text-primary transition-colors"
+                              aria-label="Collapse task"
+                            >
+                              Collapse ▲
+                            </button>
+                          </div>
+                          <p className="text-text-primary text-sm leading-relaxed whitespace-pre-wrap">
+                            {task.description}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center space-x-1 lg:space-x-2 ml-2">
+                  {!editingTask && (
+                    <button
+                      onClick={() => startEditing(task)}
+                      className="p-2 text-text-secondary hover:text-text-primary hover:bg-accent rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                      aria-label="Edit task"
+                    >
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        viewBox="0 0 20 20" 
+                        fill="currentColor" 
+                        className="w-4 h-4"
+                      >
+                        <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
+                        <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
+                      </svg>
+                    </button>
+                  )}
                   <button
-                    onClick={() => startEditing(task)}
+                    onClick={() =>
+                      handleTaskUpdate(task.id, { favorited: !task.favorited })
+                    }
+                    className="p-2 text-yellow-500 hover:text-yellow-400 hover:bg-accent rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                    aria-label={task.favorited ? "Unfavorite task" : "Favorite task"}
+                  >
+                    {task.favorited ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="w-4 h-4"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
+                        className="w-4 h-4"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => onDeleteTask(task.id)}
                     className="p-2 text-text-secondary hover:text-text-primary hover:bg-accent rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                    aria-label="Edit task"
+                    aria-label="Delete task"
                   >
                     <svg 
                       xmlns="http://www.w3.org/2000/svg" 
@@ -835,69 +892,17 @@ function TaskList({
                       fill="currentColor" 
                       className="w-4 h-4"
                     >
-                      <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
-                      <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
+                      <path 
+                        fillRule="evenodd" 
+                        d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" 
+                        clipRule="evenodd" 
+                      />
                     </svg>
                   </button>
-                )}
-                <button
-                  onClick={() =>
-                    handleTaskUpdate(task.id, { favorited: !task.favorited })
-                  }
-                  className="p-2 text-yellow-500 hover:text-yellow-400 hover:bg-accent rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                  aria-label={task.favorited ? "Unfavorite task" : "Favorite task"}
-                >
-                  {task.favorited ? (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className="w-4 h-4"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-4 h-4"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
-                      />
-                    </svg>
-                  )}
-                </button>
-                <button
-                  onClick={() => onDeleteTask(task.id)}
-                  className="p-2 text-text-secondary hover:text-text-primary hover:bg-accent rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                  aria-label="Delete task"
-                >
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    viewBox="0 0 20 20" 
-                    fill="currentColor" 
-                    className="w-4 h-4"
-                  >
-                    <path 
-                      fillRule="evenodd" 
-                      d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" 
-                      clipRule="evenodd" 
-                    />
-                  </svg>
-                </button>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
