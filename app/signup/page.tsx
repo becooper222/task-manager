@@ -46,44 +46,63 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
-        <div>
-          <h2 className="text-center text-3xl font-extrabold text-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="max-w-md w-full space-y-8 p-6 lg:p-8 bg-primary rounded-lg shadow-medium">
+        <div className="text-center">
+          <h2 className="text-2xl lg:text-3xl font-bold text-text-primary mb-2">
             Create your account
           </h2>
+          <p className="text-text-secondary text-sm lg:text-base">
+            Get started with your task management journey.
+          </p>
         </div>
+        
         <form className="mt-8 space-y-6" onSubmit={handleSignup}>
           {error && (
-            <div className="text-red-500 text-sm text-center">{error}</div>
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md">
+              <p className="text-red-400 text-sm text-center">{error}</p>
+            </div>
           )}
-          <div className="rounded-md shadow-sm -space-y-px">
+          
+          <div className="space-y-4">
             <div>
+              <label htmlFor="email" className="block text-sm font-medium text-text-primary mb-2">
+                Email address
+              </label>
               <input
+                id="email"
                 type="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
+                className="w-full px-4 py-3 bg-secondary border border-accent rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all duration-200"
+                placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
+            
             <div>
+              <label htmlFor="password" className="block text-sm font-medium text-text-primary mb-2">
+                Password
+              </label>
               <input
+                id="password"
                 type="password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
+                className="w-full px-4 py-3 bg-secondary border border-accent rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all duration-200"
+                placeholder="Create a password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+              <p className="mt-1 text-xs text-text-secondary">
+                Password must be at least 6 characters long
+              </p>
             </div>
           </div>
 
           <div className="text-sm text-center">
             <Link
               href="/login"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
+              className="font-medium text-accent hover:text-text-primary transition-colors duration-200"
             >
               Already have an account? Sign in
             </Link>
@@ -93,12 +112,29 @@ export default function Signup() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-text-primary bg-accent hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-primary focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {loading ? 'Creating account...' : 'Sign up'}
+              {loading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-text-primary border-t-transparent rounded-full animate-spin"></div>
+                  <span>Creating account...</span>
+                </div>
+              ) : (
+                'Sign up'
+              )}
             </button>
           </div>
         </form>
+        
+        {/* Back to home link */}
+        <div className="text-center pt-4 border-t border-accent">
+          <Link
+            href="https://www.benjamincooper.info/"
+            className="text-sm text-text-secondary hover:text-text-primary transition-colors duration-200"
+          >
+            ← Back to Home
+          </Link>
+        </div>
       </div>
     </div>
   )

@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [showCategoryInput, setShowCategoryInput] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -217,140 +218,326 @@ export default function Dashboard() {
   }
 
   if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>
+    return (
+      <div className="flex justify-center items-center h-screen bg-background">
+        <div className="text-text-primary text-lg">Loading...</div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between mb-4">
-          <div className="flex space-x-4">
-            <a
-              href="https://www.benjamincooper.info/"
-              className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-accent"
-            >
-              Home
-            </a>
-            <a
-              href="https://www.benjamincooper.info/portfolio.html"
-              className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-accent"
-            >
-              Portfolio
-            </a>
-          </div>
+    <div className="min-h-screen bg-background">
+      {/* Mobile Header */}
+      <div className="lg:hidden bg-primary border-b border-accent">
+        <div className="flex items-center justify-between p-4">
+          <h1 className="text-lg font-semibold text-text-primary">Task Manager</h1>
           <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-accent"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 text-text-primary hover:bg-accent rounded-md"
           >
-            Logout
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
           </button>
         </div>
-
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <Droppable droppableId="categories" direction="horizontal">
-            {(provided) => (
-              <div
-                {...provided.droppableProps}
-                ref={provided.innerRef}
-                className="flex space-x-2 mb-6 bg-primary p-2 rounded-lg shadow overflow-x-auto"
+        
+        {/* Mobile Navigation Menu */}
+        {isMobileMenuOpen && (
+          <div className="px-4 pb-4 space-y-2">
+            <div className="flex flex-col space-y-2">
+              <a
+                href="https://www.benjamincooper.info/"
+                className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary"
               >
-                <button
-                  onClick={() => setSelectedCategory('overview')}
-                  className={`px-4 py-2 rounded-md ${
-                    selectedCategory === 'overview'
-                      ? 'bg-accent text-text-primary'
-                      : 'bg-secondary hover:bg-accent text-text-primary'
-                  }`}
-                >
-                  Overview
-                </button>
-                {categories.map((category, index) => (
-                  <Draggable
-                    key={category.id}
-                    draggableId={category.id}
-                    index={index}
-                  >
-                    {(provided) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        className="relative group"
-                      >
-                        <button
-                          onClick={() => setSelectedCategory(category.id)}
-                          className={`px-4 py-2 rounded-md ${
-                            selectedCategory === category.id
-                              ? 'bg-accent text-text-primary'
-                              : 'bg-secondary hover:bg-accent text-text-primary'
-                          }`}
-                        >
-                          {category.name}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCategory(category.id)}
-                          className="absolute -top-2 -right-2 p-1.5 text-text-secondary 
-                                     hover:text-text-primary hover:bg-accent rounded-full 
-                                     opacity-0 group-hover:opacity-100 transition-opacity 
-                                     bg-primary"
-                          title="Delete category"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
-                
-                {showCategoryInput ? (
-                  <div className="flex space-x-2">
-                    <input
-                      type="text"
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      placeholder="Category name"
-                      className="px-3 py-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleAddCategory()
-                        if (e.key === 'Escape') {
-                          setShowCategoryInput(false)
-                          setNewCategoryName('')
-                        }
-                      }}
-                      autoFocus
-                    />
-                    <button
-                      onClick={handleAddCategory}
-                      className="px-3 py-2 bg-accent text-text-primary rounded-md hover:bg-secondary"
-                    >
-                      Add
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowCategoryInput(false)
-                        setNewCategoryName('')
-                      }}
-                      className="px-3 py-2 bg-secondary text-text-primary rounded-md hover:bg-accent"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
+                Home
+              </a>
+              <a
+                href="https://www.benjamincooper.info/portfolio.html"
+                className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary"
+              >
+                Portfolio
+              </a>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary text-left"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Header */}
+      <div className="hidden lg:block bg-primary border-b border-accent">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <h1 className="text-xl font-semibold text-text-primary">Task Manager</h1>
+            <div className="flex space-x-4">
+              <a
+                href="https://www.benjamincooper.info/"
+                className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-accent"
+              >
+                Home
+              </a>
+              <a
+                href="https://www.benjamincooper.info/portfolio.html"
+                className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-accent"
+              >
+                Portfolio
+              </a>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-accent"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto p-4">
+        {/* Category Navigation - Mobile */}
+        <div className="lg:hidden mb-6">
+          <div className="bg-primary rounded-lg shadow p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-text-primary">Categories</h2>
+              <button
+                onClick={() => setShowCategoryInput(!showCategoryInput)}
+                className="p-2 text-text-primary bg-accent rounded-md hover:bg-secondary"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
+            
+            {showCategoryInput && (
+              <div className="mb-4 space-y-2">
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Category name"
+                  className="w-full px-3 py-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddCategory()
+                    if (e.key === 'Escape') {
+                      setShowCategoryInput(false)
+                      setNewCategoryName('')
+                    }
+                  }}
+                  autoFocus
+                />
+                <div className="flex space-x-2">
                   <button
-                    onClick={() => setShowCategoryInput(true)}
-                    className="px-4 py-2 rounded-md bg-secondary text-text-primary hover:bg-accent"
+                    onClick={handleAddCategory}
+                    className="flex-1 px-3 py-2 bg-accent text-text-primary rounded-md hover:bg-secondary"
                   >
-                    + Add Category
+                    Add
                   </button>
-                )}
+                  <button
+                    onClick={() => {
+                      setShowCategoryInput(false)
+                      setNewCategoryName('')
+                    }}
+                    className="flex-1 px-3 py-2 bg-secondary text-text-primary rounded-md hover:bg-accent"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             )}
-          </Droppable>
-        </DragDropContext>
 
-        <div className="bg-primary rounded-lg shadow p-6">
-          <form onSubmit={handleAddTask} className="mb-6 flex gap-2">
+            <div className="space-y-2">
+              <button
+                onClick={() => setSelectedCategory('overview')}
+                className={`w-full px-4 py-3 rounded-md text-left ${
+                  selectedCategory === 'overview'
+                    ? 'bg-accent text-text-primary'
+                    : 'bg-secondary hover:bg-accent text-text-primary'
+                }`}
+              >
+                Overview
+              </button>
+              {categories.map((category) => (
+                <div key={category.id} className="relative group">
+                  <button
+                    onClick={() => setSelectedCategory(category.id)}
+                    className={`w-full px-4 py-3 rounded-md text-left ${
+                      selectedCategory === category.id
+                        ? 'bg-accent text-text-primary'
+                        : 'bg-secondary hover:bg-accent text-text-primary'
+                    }`}
+                  >
+                    {category.name}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCategory(category.id)}
+                    className="absolute top-2 right-2 p-1.5 text-text-secondary 
+                               hover:text-text-primary hover:bg-accent rounded-full 
+                               opacity-0 group-hover:opacity-100 transition-opacity 
+                               bg-primary"
+                    title="Delete category"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Category Navigation - Desktop */}
+        <div className="hidden lg:block mb-6">
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="categories" direction="horizontal">
+              {(provided) => (
+                <div
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  className="flex space-x-2 bg-primary p-2 rounded-lg shadow overflow-x-auto"
+                >
+                  <button
+                    onClick={() => setSelectedCategory('overview')}
+                    className={`px-4 py-2 rounded-md whitespace-nowrap ${
+                      selectedCategory === 'overview'
+                        ? 'bg-accent text-text-primary'
+                        : 'bg-secondary hover:bg-accent text-text-primary'
+                    }`}
+                  >
+                    Overview
+                  </button>
+                  {categories.map((category, index) => (
+                    <Draggable
+                      key={category.id}
+                      draggableId={category.id}
+                      index={index}
+                    >
+                      {(provided) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          className="relative group"
+                        >
+                          <button
+                            onClick={() => setSelectedCategory(category.id)}
+                            className={`px-4 py-2 rounded-md whitespace-nowrap ${
+                              selectedCategory === category.id
+                                ? 'bg-accent text-text-primary'
+                                : 'bg-secondary hover:bg-accent text-text-primary'
+                            }`}
+                          >
+                            {category.name}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCategory(category.id)}
+                            className="absolute -top-2 -right-2 p-1.5 text-text-secondary 
+                                       hover:text-text-primary hover:bg-accent rounded-full 
+                                       opacity-0 group-hover:opacity-100 transition-opacity 
+                                       bg-primary"
+                            title="Delete category"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                  
+                  {showCategoryInput ? (
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="Category name"
+                        className="px-3 py-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleAddCategory()
+                          if (e.key === 'Escape') {
+                            setShowCategoryInput(false)
+                            setNewCategoryName('')
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleAddCategory}
+                        className="px-3 py-2 bg-accent text-text-primary rounded-md hover:bg-secondary"
+                      >
+                        Add
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowCategoryInput(false)
+                          setNewCategoryName('')
+                        }}
+                        className="px-3 py-2 bg-secondary text-text-primary rounded-md hover:bg-accent"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowCategoryInput(true)}
+                      className="px-4 py-2 rounded-md bg-secondary text-text-primary hover:bg-accent whitespace-nowrap"
+                    >
+                      + Add Category
+                    </button>
+                  )}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        </div>
+
+        {/* Main Content */}
+        <div className="bg-primary rounded-lg shadow p-4 lg:p-6">
+          {/* Add Task Form - Mobile */}
+          <form onSubmit={handleAddTask} className="lg:hidden mb-6 space-y-3">
+            <input
+              type="text"
+              value={newTaskName}
+              onChange={(e) => setNewTaskName(e.target.value)}
+              placeholder="Add a new task..."
+              className="w-full p-3 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                value={selectedCategory === 'overview' ? '' : selectedCategory || ''}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="p-3 border border-accent rounded-md bg-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+                required
+              >
+                <option value="" disabled>Select category</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={newTaskDate}
+                onChange={(e) => setNewTaskDate(e.target.value)}
+                className="p-3 border border-accent rounded-md bg-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!selectedCategory || selectedCategory === 'overview'}
+              className="w-full bg-accent text-text-primary px-4 py-3 rounded-md hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Add Task
+            </button>
+          </form>
+
+          {/* Add Task Form - Desktop */}
+          <form onSubmit={handleAddTask} className="hidden lg:flex mb-6 gap-2">
             <input
               type="text"
               value={newTaskName}
@@ -456,13 +643,13 @@ function TaskList({
   }
 
   return (
-    <div className="border rounded-md p-4">
+    <div className="border border-accent rounded-md p-4">
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="flex items-center justify-between w-full mb-2"
       >
-        <h3 className="text-lg font-semibold">{title} ({tasks.length})</h3>
-        <span>{collapsed ? '▼' : '▲'}</span>
+        <h3 className="text-lg font-semibold text-text-primary">{title} ({tasks.length})</h3>
+        <span className="text-text-primary">{collapsed ? '▼' : '▲'}</span>
       </button>
       
       {!collapsed && (
@@ -470,65 +657,67 @@ function TaskList({
           {tasks.map((task) => (
             <div
               key={task.id}
-              className="flex items-center justify-between p-2 hover:bg-secondary rounded-md"
+              className="flex items-center justify-between p-3 hover:bg-secondary rounded-md transition-colors"
             >
-              <div className="flex items-center space-x-2 flex-grow">
+              <div className="flex items-center space-x-3 flex-grow min-w-0">
                 <input
                   type="checkbox"
                   checked={task.completed}
                   onChange={(e) =>
                     handleTaskUpdate(task.id, { completed: e.target.checked })
                   }
-                  className="h-4 w-4 bg-secondary border-accent"
+                  className="h-5 w-5 bg-secondary border-accent rounded focus:ring-2 focus:ring-accent"
                 />
                 {editingTask === task.id ? (
-                  <div className="flex space-x-2 flex-grow">
+                  <div className="flex flex-col lg:flex-row space-y-2 lg:space-y-0 lg:space-x-2 flex-grow">
                     <input
                       type="text"
                       value={editedTaskName}
                       onChange={(e) => setEditedTaskName(e.target.value)}
-                      className="flex-grow p-1 bg-secondary border border-accent rounded-md text-text-primary"
+                      className="flex-grow p-2 bg-secondary border border-accent rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
                       autoFocus
                     />
                     <input
                       type="date"
                       value={editedTaskDate}
                       onChange={(e) => setEditedTaskDate(e.target.value)}
-                      className="p-1 bg-secondary border border-accent rounded-md text-text-primary"
+                      className="p-2 bg-secondary border border-accent rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
                     />
-                    <button
-                      onClick={() => handleTaskUpdate(task.id, { 
-                        name: editedTaskName,
-                        date: editedTaskDate
-                      })}
-                      className="px-2 py-1 bg-accent text-text-primary rounded-md hover:bg-secondary"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setEditingTask(null)}
-                      className="px-2 py-1 bg-secondary text-text-primary rounded-md hover:bg-accent"
-                    >
-                      Cancel
-                    </button>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleTaskUpdate(task.id, { 
+                          name: editedTaskName,
+                          date: editedTaskDate
+                        })}
+                        className="px-3 py-2 bg-accent text-text-primary rounded-md hover:bg-secondary"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingTask(null)}
+                        className="px-3 py-2 bg-secondary text-text-primary rounded-md hover:bg-accent"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <>
-                    <span className={task.completed ? 'line-through text-text-secondary' : 'text-text-primary'}>
+                  <div className="flex flex-col lg:flex-row lg:items-center space-y-1 lg:space-y-0 lg:space-x-3 flex-grow min-w-0">
+                    <span className={`${task.completed ? 'line-through text-text-secondary' : 'text-text-primary'} truncate`}>
                       {task.name}
                     </span>
                     <span className="text-sm text-text-secondary">{task.date}</span>
-                    <span className="text-xs px-2 py-1 bg-secondary rounded-full text-text-secondary">
+                    <span className="text-xs px-2 py-1 bg-secondary rounded-full text-text-secondary whitespace-nowrap">
                       {getCategoryName(task.category_id)}
                     </span>
-                  </>
+                  </div>
                 )}
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 lg:space-x-2 ml-2">
                 {!editingTask && (
                   <button
                     onClick={() => startEditing(task)}
-                    className="p-1 text-text-secondary hover:text-text-primary focus:outline-none"
+                    className="p-2 text-text-secondary hover:text-text-primary hover:bg-accent rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
                     aria-label="Edit task"
                   >
                     <svg 
@@ -546,7 +735,7 @@ function TaskList({
                   onClick={() =>
                     handleTaskUpdate(task.id, { favorited: !task.favorited })
                   }
-                  className="p-1 text-yellow-500 hover:text-yellow-400 focus:outline-none"
+                  className="p-2 text-yellow-500 hover:text-yellow-400 hover:bg-accent rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
                   aria-label={task.favorited ? "Unfavorite task" : "Favorite task"}
                 >
                   {task.favorited ? (
@@ -581,7 +770,7 @@ function TaskList({
                 </button>
                 <button
                   onClick={() => onDeleteTask(task.id)}
-                  className="p-1 text-text-secondary hover:text-text-primary focus:outline-none"
+                  className="p-2 text-text-secondary hover:text-text-primary hover:bg-accent rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
                   aria-label="Delete task"
                 >
                   <svg 
