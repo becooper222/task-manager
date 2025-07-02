@@ -160,6 +160,24 @@ button, input, select, textarea {
   transform: translateX(2px);
 }
 
+/* Task expansion animation */
+@keyframes expandIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 200px;
+  }
+}
+
+.task-expand-enter {
+  animation: expandIn 0.3s ease-out;
+}
+
 /* Responsive grid improvements */
 @media (max-width: 640px) {
   .grid-cols-2 {

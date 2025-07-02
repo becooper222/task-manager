@@ -673,7 +673,7 @@ function TaskList({
     })
   }
 
-  const truncateText = (text: string, maxLength: number = 50) => {
+  const truncateText = (text: string, maxLength: number = 60) => {
     if (text.length <= maxLength) return text
     return text.substring(0, maxLength) + '...'
   }
@@ -755,28 +755,66 @@ function TaskList({
                   </div>
                 ) : (
                   <div className="flex flex-col space-y-2 flex-grow min-w-0">
-                    <div 
-                      className={`flex flex-col lg:flex-row lg:items-center space-y-1 lg:space-y-0 lg:space-x-3 ${task.description ? 'cursor-pointer hover:bg-accent/10 rounded px-2 py-1 -mx-2 -my-1 transition-colors' : ''}`}
-                      onClick={() => task.description && toggleTaskExpansion(task.id)}
-                    >
-                      <span className={`${task.completed ? 'line-through text-text-secondary' : 'text-text-primary'} ${!expandedTasks.has(task.id) ? 'truncate' : ''}`}>
-                        {expandedTasks.has(task.id) ? task.name : truncateText(task.name)}
-                      </span>
-                      <div className="flex items-center space-x-2 lg:space-x-3">
-                        <span className="text-sm text-text-secondary">{task.date}</span>
-                        <span className="text-xs px-2 py-1 bg-secondary rounded-full text-text-secondary whitespace-nowrap">
-                          {getCategoryName(task.category_id)}
+                    <div className="flex flex-col lg:flex-row lg:items-center space-y-1 lg:space-y-0 lg:space-x-3">
+                      <div 
+                        className={`flex-1 ${task.description ? 'cursor-pointer hover:bg-accent/10 rounded px-2 py-1 -mx-2 -my-1 transition-colors' : ''}`}
+                        onClick={() => task.description && toggleTaskExpansion(task.id)}
+                      >
+                        <span className={`${task.completed ? 'line-through text-text-secondary' : 'text-text-primary'} ${!expandedTasks.has(task.id) ? 'truncate' : ''}`}>
+                          {expandedTasks.has(task.id) ? task.name : truncateText(task.name)}
                         </span>
+                        {task.description && !expandedTasks.has(task.id) && (
+                          <span className="ml-2 text-xs text-text-secondary opacity-60">
+                            (tap to expand)
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between lg:justify-start space-x-2 lg:space-x-3">
+                        <div className="flex items-center space-x-2 lg:space-x-3">
+                          <span className="text-sm text-text-secondary">{task.date}</span>
+                          <span className="text-xs px-2 py-1 bg-secondary rounded-full text-text-secondary whitespace-nowrap">
+                            {getCategoryName(task.category_id)}
+                          </span>
+                        </div>
                         {task.description && (
-                          <span className="text-xs text-text-secondary">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleTaskExpansion(task.id);
+                            }}
+                            className="lg:hidden flex items-center justify-center w-8 h-8 rounded-full bg-accent/20 hover:bg-accent/30 transition-colors"
+                            aria-label={expandedTasks.has(task.id) ? "Collapse task" : "Expand task"}
+                          >
+                            <span className="text-sm text-text-primary">
+                              {expandedTasks.has(task.id) ? '▲' : '▼'}
+                            </span>
+                          </button>
+                        )}
+                        {task.description && (
+                          <span className="hidden lg:inline text-xs text-text-secondary">
                             {expandedTasks.has(task.id) ? '▲' : '▼'}
                           </span>
                         )}
                       </div>
                     </div>
                     {expandedTasks.has(task.id) && task.description && (
-                      <div className="mt-2 p-3 bg-secondary/30 rounded-md border border-accent/30">
-                        <p className="text-text-primary text-sm whitespace-pre-wrap">
+                      <div className="mt-3 p-4 bg-secondary/40 rounded-lg border border-accent/40 shadow-sm task-expand-enter">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-text-secondary uppercase tracking-wide">
+                            Description
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleTaskExpansion(task.id);
+                            }}
+                            className="text-xs text-text-secondary hover:text-text-primary transition-colors"
+                            aria-label="Collapse task"
+                          >
+                            Collapse ▲
+                          </button>
+                        </div>
+                        <p className="text-text-primary text-sm leading-relaxed whitespace-pre-wrap">
                           {task.description}
                         </p>
                       </div>
