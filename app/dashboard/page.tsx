@@ -16,7 +16,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [showCategoryInput, setShowCategoryInput] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false) 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -615,6 +615,19 @@ function TaskList({
   const [editingTask, setEditingTask] = useState<string | null>(null)
   const [editedTaskName, setEditedTaskName] = useState('')
   const [editedTaskDate, setEditedTaskDate] = useState('')
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set())
+
+  const toggleTaskExpand = (taskId: string) => {
+    setExpandedTasks((previouslyExpanded) => {
+      const nextExpanded = new Set(previouslyExpanded)
+      if (nextExpanded.has(taskId)) {
+        nextExpanded.delete(taskId)
+      } else {
+        nextExpanded.add(taskId)
+      }
+      return nextExpanded
+    })
+  }
 
   const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
     try {
@@ -703,9 +716,15 @@ function TaskList({
                   </div>
                 ) : (
                   <div className="flex flex-col lg:flex-row lg:items-center space-y-1 lg:space-y-0 lg:space-x-3 flex-grow min-w-0">
-                    <span className={`${task.completed ? 'line-through text-text-secondary' : 'text-text-primary'} truncate`}>
+                    <button
+                      type="button"
+                      onClick={() => toggleTaskExpand(task.id)}
+                      aria-expanded={expandedTasks.has(task.id)}
+                      className={`${task.completed ? 'line-through text-text-secondary' : 'text-text-primary'} ${expandedTasks.has(task.id) ? 'whitespace-normal break-words' : 'truncate'} lg:whitespace-normal lg:overflow-visible text-left cursor-pointer lg:cursor-text`}
+                      title="Tap to expand"
+                    >
                       {task.name}
-                    </span>
+                    </button>
                     <span className="text-sm text-text-secondary">{task.date}</span>
                     <span className="text-xs px-2 py-1 bg-secondary rounded-full text-text-secondary whitespace-nowrap">
                       {getCategoryName(task.category_id)}
