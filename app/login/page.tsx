@@ -51,14 +51,14 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
+      <div className="max-w-md w-full space-y-6 sm:space-y-8 p-6 sm:p-8 bg-white rounded-lg shadow">
         <div>
-          <h2 className="text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="text-center text-2xl sm:text-3xl font-extrabold text-gray-900">
             Sign in to your account
           </h2>
         </div>
         <form 
-          className="mt-8 space-y-6" 
+          className="mt-6 sm:mt-8 space-y-6" 
           onSubmit={(e) => {
             console.log('Form submit event triggered')
             handleLogin(e)

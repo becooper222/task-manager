@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd'
 import { useAuth } from '@/lib/context/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -223,8 +223,8 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between mb-4">
-          <div className="flex space-x-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <div className="flex flex-wrap gap-2">
             <a
               href="https://www.benjamincooper.info/"
               className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-accent"
@@ -350,18 +350,18 @@ export default function Dashboard() {
         </DragDropContext>
 
         <div className="bg-primary rounded-lg shadow p-6">
-          <form onSubmit={handleAddTask} className="mb-6 flex gap-2">
+          <form onSubmit={handleAddTask} className="mb-6 flex flex-col md:flex-row gap-2">
             <input
               type="text"
               value={newTaskName}
               onChange={(e) => setNewTaskName(e.target.value)}
               placeholder="Add a new task..."
-              className="flex-1 p-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full md:flex-1 p-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
             />
             <select
               value={selectedCategory === 'overview' ? '' : selectedCategory || ''}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="p-2 border border-accent rounded-md bg-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full md:w-auto p-2 border border-accent rounded-md bg-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
               required
             >
               <option value="" disabled>Select category</option>
@@ -375,12 +375,12 @@ export default function Dashboard() {
               type="date"
               value={newTaskDate}
               onChange={(e) => setNewTaskDate(e.target.value)}
-              className="p-2 border border-accent rounded-md bg-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full md:w-auto p-2 border border-accent rounded-md bg-secondary text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
             />
             <button
               type="submit"
               disabled={!selectedCategory || selectedCategory === 'overview'}
-              className="bg-accent text-text-primary px-4 py-2 rounded-md hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full md:w-auto bg-accent text-text-primary px-4 py-2 rounded-md hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add Task
             </button>
@@ -428,6 +428,20 @@ function TaskList({
   const [editingTask, setEditingTask] = useState<string | null>(null)
   const [editedTaskName, setEditedTaskName] = useState('')
   const [editedTaskDate, setEditedTaskDate] = useState('')
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
+  const listRef = useRef<HTMLDivElement | null>(null)
+
+  // Collapse expanded name when clicking outside (mobile-focused behavior)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!listRef.current) return
+      if (expandedTaskId && !listRef.current.contains(event.target as Node)) {
+        setExpandedTaskId(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [expandedTaskId])
 
   const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
     try {
@@ -456,7 +470,7 @@ function TaskList({
   }
 
   return (
-    <div className="border rounded-md p-4">
+    <div className="border rounded-md p-4" ref={listRef}>
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="flex items-center justify-between w-full mb-2"
@@ -470,9 +484,9 @@ function TaskList({
           {tasks.map((task) => (
             <div
               key={task.id}
-              className="flex items-center justify-between p-2 hover:bg-secondary rounded-md"
+              className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-2 hover:bg-secondary rounded-md"
             >
-              <div className="flex items-center space-x-2 flex-grow">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
                 <input
                   type="checkbox"
                   checked={task.completed}
@@ -482,7 +496,7 @@ function TaskList({
                   className="h-4 w-4 bg-secondary border-accent"
                 />
                 {editingTask === task.id ? (
-                  <div className="flex space-x-2 flex-grow">
+                  <div className="flex flex-col sm:flex-row gap-2 flex-1">
                     <input
                       type="text"
                       value={editedTaskName}
@@ -514,9 +528,20 @@ function TaskList({
                   </div>
                 ) : (
                   <>
-                    <span className={task.completed ? 'line-through text-text-secondary' : 'text-text-primary'}>
+                    <button
+                      type="button"
+                      className={`text-left w-full ${task.completed ? 'line-through text-text-secondary' : 'text-text-primary'} 
+                        sm:truncate ${expandedTaskId === task.id ? 'line-clamp-none' : 'line-clamp-2'}`}
+                      onClick={(e) => {
+                        // Only expand on small screens to avoid altering desktop UX
+                        if (window.matchMedia && window.matchMedia('(max-width: 640px)').matches) {
+                          e.stopPropagation()
+                          setExpandedTaskId(prev => prev === task.id ? null : task.id)
+                        }
+                      }}
+                    >
                       {task.name}
-                    </span>
+                    </button>
                     <span className="text-sm text-text-secondary">{task.date}</span>
                     <span className="text-xs px-2 py-1 bg-secondary rounded-full text-text-secondary">
                       {getCategoryName(task.category_id)}
@@ -524,10 +549,10 @@ function TaskList({
                   </>
                 )}
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-2 self-end sm:self-auto">
                 {!editingTask && (
                   <button
-                    onClick={() => startEditing(task)}
+                    onClick={(e) => { e.stopPropagation(); startEditing(task) }}
                     className="p-1 text-text-secondary hover:text-text-primary focus:outline-none"
                     aria-label="Edit task"
                   >
@@ -543,9 +568,10 @@ function TaskList({
                   </button>
                 )}
                 <button
-                  onClick={() =>
+                  onClick={(e) => {
+                    e.stopPropagation()
                     handleTaskUpdate(task.id, { favorited: !task.favorited })
-                  }
+                  }}
                   className="p-1 text-yellow-500 hover:text-yellow-400 focus:outline-none"
                   aria-label={task.favorited ? "Unfavorite task" : "Favorite task"}
                 >
@@ -580,7 +606,7 @@ function TaskList({
                   )}
                 </button>
                 <button
-                  onClick={() => onDeleteTask(task.id)}
+                  onClick={(e) => { e.stopPropagation(); onDeleteTask(task.id) }}
                   className="p-1 text-text-secondary hover:text-text-primary focus:outline-none"
                   aria-label="Delete task"
                 >

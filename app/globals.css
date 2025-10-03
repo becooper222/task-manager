@@ -38,3 +38,26 @@ body {
 .category-button.active {
   background-color: var(--accent);
 }
+
+/* Mobile-friendly base adjustments */
+@media (max-width: 640px) {
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, input, select, textarea {
+    min-height: 44px;
+  }
+}
+
+/* Utility: line clamp without plugin */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-none {
+  display: block;
+  overflow: visible;
+}
