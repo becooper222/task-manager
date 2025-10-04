@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd'
-import { useAuth } from '@/lib/context/AuthContext'
-import { supabase } from '@/lib/supabase'
+import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { useUser } from '@auth0/nextjs-auth0/client'
 import { Category, Task } from '@/lib/types'
+import ShareCategoryModal from './ShareCategoryModal'
 
 export default function Dashboard() {
-  const { user } = useAuth()
+  const { user } = useUser()
   const [categories, setCategories] = useState<Category[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
@@ -16,6 +18,13 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [showCategoryInput, setShowCategoryInput] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [fixingOrder, setFixingOrder] = useState(false)
+  const [fixOrderStatus, setFixOrderStatus] = useState<string | null>(null)
+  const [showBackupMenu, setShowBackupMenu] = useState(false)
+  const backupMenuRef = useRef<HTMLDivElement>(null)
+  const [sharingCategoryId, setSharingCategoryId] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -24,14 +33,24 @@ export default function Dashboard() {
     }
   }, [user])
 
+  // Close backup menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (backupMenuRef.current && !backupMenuRef.current.contains(event.target as Node)) {
+        setShowBackupMenu(false)
+      }
+    }
+    if (showBackupMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showBackupMenu])
+
   const fetchCategories = async () => {
     try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('sort_order')
-
-      if (error) throw error
+      const res = await fetch('/api/categories', { cache: 'no-store' })
+      if (!res.ok) throw new Error('Failed to fetch categories')
+      const data: Category[] = await res.json()
       setCategories(data)
       if (data.length > 0 && !selectedCategory) {
         setSelectedCategory(data[0].id)
@@ -43,13 +62,9 @@ export default function Dashboard() {
 
   const fetchTasks = async () => {
     try {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .order('favorited', { ascending: false })
-        .order('date', { ascending: true })
-
-      if (error) throw error
+      const res = await fetch('/api/tasks', { cache: 'no-store' })
+      if (!res.ok) throw new Error('Failed to fetch tasks')
+      const data: Task[] = await res.json()
       setTasks(data)
       setLoading(false)
     } catch (error) {
@@ -63,18 +78,16 @@ export default function Dashboard() {
     if (!newTaskName.trim() || !user || !selectedCategory || selectedCategory === 'overview') return
 
     try {
-      const { error } = await supabase.from('tasks').insert([
-        {
-          user_id: user.id,
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           category_id: selectedCategory,
           name: newTaskName,
           date: newTaskDate,
-          completed: false,
-          favorited: false,
-        },
-      ])
-
-      if (error) throw error
+        })
+      })
+      if (!res.ok) throw new Error('Failed to add task')
       setNewTaskName('')
       fetchTasks()
     } catch (error) {
@@ -82,27 +95,34 @@ export default function Dashboard() {
     }
   }
 
-  const handleDragEnd = async (result: any) => {
-    if (!result.destination) return
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  )
 
-    const items = Array.from(categories)
-    const [reorderedItem] = items.splice(result.source.index, 1)
-    items.splice(result.destination.index, 0, reorderedItem)
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
 
+    if (!over || active.id === over.id) return
+
+    const oldIndex = categories.findIndex((cat) => cat.id === active.id)
+    const newIndex = categories.findIndex((cat) => cat.id === over.id)
+
+    const items = arrayMove(categories, oldIndex, newIndex)
     setCategories(items)
 
     // Update sort_order for all affected categories
     try {
-      const updates = items.map((category, index) => ({
-        id: category.id,
-        sort_order: index,
-      }))
-
-      const { error } = await supabase
-        .from('categories')
-        .upsert(updates, { onConflict: 'id' })
-
-      if (error) throw error
+      const updates = items.map((category, index) => ({ id: category.id, sort_order: index }))
+      const res = await fetch('/api/categories/reorder', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: updates })
+      })
+      if (!res.ok) throw new Error('Failed to reorder categories')
     } catch (error) {
       console.error('Error updating category order:', error)
       fetchCategories() // Revert to server state if error
@@ -113,19 +133,12 @@ export default function Dashboard() {
     if (!newCategoryName.trim() || !user) return
 
     try {
-      // Get the highest sort_order
-      const maxSortOrder = categories.reduce((max, cat) => 
-        Math.max(max, cat.sort_order), -1)
-
-      const { error } = await supabase.from('categories').insert([
-        {
-          user_id: user.id,
-          name: newCategoryName,
-          sort_order: maxSortOrder + 1
-        }
-      ])
-
-      if (error) throw error
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newCategoryName })
+      })
+      if (!res.ok) throw new Error('Failed to add category')
       
       setNewCategoryName('')
       setShowCategoryInput(false)
@@ -137,16 +150,9 @@ export default function Dashboard() {
 
   const handleDeleteTask = async (taskId: string) => {
     if (!user) return
-
     try {
-      const { error } = await supabase
-        .from('tasks')
-        .delete()
-        .eq('id', taskId)
-
-      if (error) throw error
-      
-      // Refresh tasks after deletion
+      const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to delete task')
       fetchTasks()
     } catch (error) {
       console.error('Error deleting task:', error)
@@ -158,12 +164,10 @@ export default function Dashboard() {
     
     try {
       // First check if there are any tasks in this category
-      const { data: tasksInCategory, error: tasksError } = await supabase
-        .from('tasks')
-        .select('id')
-        .eq('category_id', categoryId)
-
-      if (tasksError) throw tasksError
+      const resTasks = await fetch('/api/tasks', { cache: 'no-store' })
+      if (!resTasks.ok) throw new Error('Failed to load tasks')
+      const allTasks: Task[] = await resTasks.json()
+      const tasksInCategory = allTasks.filter(t => t.category_id === categoryId)
 
       // If there are tasks, ask for confirmation
       if (tasksInCategory.length > 0) {
@@ -177,12 +181,8 @@ export default function Dashboard() {
       }
 
       // Proceed with deletion - tasks will be automatically deleted due to CASCADE
-      const { error } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', categoryId)
-
-      if (error) throw error
+      const res = await fetch(`/api/categories/${categoryId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to delete category')
       
       // Refresh categories and tasks after deletion
       fetchCategories()
@@ -204,15 +204,73 @@ export default function Dashboard() {
   const completedTasks = filteredTasks.filter(task => task.completed)
   const incompleteTasks = filteredTasks.filter(task => !task.completed)
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
+    window.location.href = '/api/auth/logout'
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    setUploadStatus(null)
+
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-      
-      // Refresh the page to let middleware handle the redirect
-      window.location.reload()
-    } catch (error) {
-      console.error('Error logging out:', error)
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch('/api/backup/import', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to import backup')
+      }
+
+      setUploadStatus(`✓ ${data.message}`)
+      fetchCategories()
+      fetchTasks()
+
+      // Clear the file input
+      e.target.value = ''
+    } catch (error: any) {
+      console.error('Error uploading backup:', error)
+      setUploadStatus(`✗ Error: ${error.message}`)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleDownloadTemplate = () => {
+    window.location.href = '/api/backup/template'
+  }
+
+  const handleDownloadBackup = () => {
+    window.location.href = '/api/backup/export'
+  }
+
+  const handleFixCategoryOrder = async () => {
+    setFixingOrder(true)
+    setFixOrderStatus(null)
+
+    try {
+      const res = await fetch('/api/categories/fix-order')
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to fix category order')
+      }
+
+      setFixOrderStatus(`✓ ${data.message}`)
+      fetchCategories() // Refresh categories to show new order
+    } catch (error: any) {
+      console.error('Error fixing category order:', error)
+      setFixOrderStatus(`✗ Error: ${error.message}`)
+    } finally {
+      setFixingOrder(false)
     }
   }
 
@@ -238,116 +296,157 @@ export default function Dashboard() {
               Portfolio
             </a>
           </div>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-accent"
-          >
-            Logout
-          </button>
-        </div>
-
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <Droppable droppableId="categories" direction="horizontal">
-            {(provided) => (
-              <div
-                {...provided.droppableProps}
-                ref={provided.innerRef}
-                className="flex space-x-2 mb-6 bg-primary p-2 rounded-lg shadow overflow-x-auto"
+          <div className="flex gap-2">
+            {/* Backup & Import Dropdown */}
+            <div className="relative" ref={backupMenuRef}>
+              <button
+                onClick={() => setShowBackupMenu(!showBackupMenu)}
+                className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-accent"
               >
-                <button
-                  onClick={() => setSelectedCategory('overview')}
-                  className={`px-4 py-2 rounded-md ${
-                    selectedCategory === 'overview'
-                      ? 'bg-accent text-text-primary'
-                      : 'bg-secondary hover:bg-accent text-text-primary'
-                  }`}
-                >
-                  Overview
-                </button>
-                {categories.map((category, index) => (
-                  <Draggable
-                    key={category.id}
-                    draggableId={category.id}
-                    index={index}
-                  >
-                    {(provided) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        className="relative group"
+                Backup & Import
+              </button>
+              {showBackupMenu && (
+                <div className="absolute right-0 mt-2 w-72 bg-primary rounded-lg shadow-lg border border-accent z-50">
+                  <div className="p-4">
+                    <div className="flex flex-col gap-3">
+                      <button
+                        onClick={handleDownloadBackup}
+                        className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary"
                       >
-                        <button
-                          onClick={() => setSelectedCategory(category.id)}
-                          className={`px-4 py-2 rounded-md ${
-                            selectedCategory === category.id
-                              ? 'bg-accent text-text-primary'
-                              : 'bg-secondary hover:bg-accent text-text-primary'
-                          }`}
+                        💾 Download Backup
+                      </button>
+                      <div>
+                        <label
+                          htmlFor="backup-upload"
+                          className={`flex items-center justify-center px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary cursor-pointer ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                          {category.name}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCategory(category.id)}
-                          className="absolute -top-2 -right-2 p-1.5 text-text-secondary 
-                                     hover:text-text-primary hover:bg-accent rounded-full 
-                                     opacity-0 group-hover:opacity-100 transition-opacity 
-                                     bg-primary"
-                          title="Delete category"
-                        >
-                          ×
-                        </button>
+                          {uploading ? 'Uploading...' : '📤 Upload Backup'}
+                        </label>
+                        <input
+                          id="backup-upload"
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={handleFileUpload}
+                          disabled={uploading}
+                          className="hidden"
+                        />
+                      </div>
+                      <button
+                        onClick={handleDownloadTemplate}
+                        className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary"
+                      >
+                        📥 Download Template
+                      </button>
+                      <button
+                        onClick={handleFixCategoryOrder}
+                        disabled={fixingOrder}
+                        className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {fixingOrder ? 'Fixing...' : '🔧 Fix Category Order'}
+                      </button>
+                    </div>
+                    {uploadStatus && (
+                      <div
+                        className={`mt-3 p-3 rounded-md text-sm ${uploadStatus.startsWith('✓') ? 'bg-green-900/30 text-green-300' : 'bg-red-900/30 text-red-300'}`}
+                      >
+                        {uploadStatus}
                       </div>
                     )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
-                
-                {showCategoryInput ? (
-                  <div className="flex space-x-2">
-                    <input
-                      type="text"
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      placeholder="Category name"
-                      className="px-3 py-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleAddCategory()
-                        if (e.key === 'Escape') {
-                          setShowCategoryInput(false)
-                          setNewCategoryName('')
-                        }
-                      }}
-                      autoFocus
-                    />
-                    <button
-                      onClick={handleAddCategory}
-                      className="px-3 py-2 bg-accent text-text-primary rounded-md hover:bg-secondary"
-                    >
-                      Add
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowCategoryInput(false)
-                        setNewCategoryName('')
-                      }}
-                      className="px-3 py-2 bg-secondary text-text-primary rounded-md hover:bg-accent"
-                    >
-                      Cancel
-                    </button>
+                    {fixOrderStatus && (
+                      <div
+                        className={`mt-3 p-3 rounded-md text-sm ${fixOrderStatus.startsWith('✓') ? 'bg-green-900/30 text-green-300' : 'bg-red-900/30 text-red-300'}`}
+                      >
+                        {fixOrderStatus}
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <button
-                    onClick={() => setShowCategoryInput(true)}
-                    className="px-4 py-2 rounded-md bg-secondary text-text-primary hover:bg-accent"
-                  >
-                    + Add Category
-                  </button>
-                )}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-accent"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex space-x-2 mb-6 bg-primary p-2 rounded-lg shadow overflow-x-auto">
+            <button
+              onClick={() => setSelectedCategory('overview')}
+              className={`px-4 py-2 rounded-md ${
+                selectedCategory === 'overview'
+                  ? 'bg-accent text-text-primary'
+                  : 'bg-secondary hover:bg-accent text-text-primary'
+              }`}
+            >
+              Overview
+            </button>
+            <SortableContext
+              items={categories.map((cat) => cat.id)}
+              strategy={horizontalListSortingStrategy}
+            >
+              {categories.map((category) => (
+                <SortableCategory
+                  key={category.id}
+                  category={category}
+                  isSelected={selectedCategory === category.id}
+                  onSelect={() => setSelectedCategory(category.id)}
+                  onDelete={() => handleDeleteCategory(category.id)}
+                  onShare={() => setSharingCategoryId(category.id)}
+                />
+              ))}
+            </SortableContext>
+            
+            {showCategoryInput ? (
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Category name"
+                  className="px-3 py-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddCategory()
+                    if (e.key === 'Escape') {
+                      setShowCategoryInput(false)
+                      setNewCategoryName('')
+                    }
+                  }}
+                  autoFocus
+                />
+                <button
+                  onClick={handleAddCategory}
+                  className="px-3 py-2 bg-accent text-text-primary rounded-md hover:bg-secondary"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCategoryInput(false)
+                    setNewCategoryName('')
+                  }}
+                  className="px-3 py-2 bg-secondary text-text-primary rounded-md hover:bg-accent"
+                >
+                  Cancel
+                </button>
               </div>
+            ) : (
+              <button
+                onClick={() => setShowCategoryInput(true)}
+                className="px-4 py-2 rounded-md bg-secondary text-text-primary hover:bg-accent"
+              >
+                + Add Category
+              </button>
             )}
-          </Droppable>
-        </DragDropContext>
+          </div>
+        </DndContext>
 
         <div className="bg-primary rounded-lg shadow p-6">
           <form onSubmit={handleAddTask} className="mb-6 flex flex-col md:flex-row gap-2">
@@ -405,6 +504,101 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {sharingCategoryId && (
+        <ShareCategoryModal
+          categoryId={sharingCategoryId}
+          categoryName={categories.find((c) => c.id === sharingCategoryId)?.name || ''}
+          onClose={() => setSharingCategoryId(null)}
+          onMembersChanged={fetchCategories}
+        />
+      )}
+    </div>
+  )
+}
+
+function SortableCategory({
+  category,
+  isSelected,
+  onSelect,
+  onDelete,
+  onShare,
+}: {
+  category: Category
+  isSelected: boolean
+  onSelect: () => void
+  onDelete: () => void
+  onShare: () => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  const isShared = (category.member_count ?? 1) > 1
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="relative group"
+    >
+      <button
+        onClick={onSelect}
+        className={`px-4 py-2 rounded-md flex items-center gap-2 ${
+          isSelected
+            ? 'bg-accent text-text-primary'
+            : 'bg-secondary hover:bg-accent text-text-primary'
+        }`}
+      >
+        <span>{category.name}</span>
+        {isShared && (
+          <span className="inline-flex items-center justify-center w-5 h-5 text-xs bg-accent rounded-full" title={`${category.member_count} members`}>
+            {category.member_count}
+          </span>
+        )}
+      </button>
+      <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onShare()
+          }}
+          className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-accent rounded-full bg-primary"
+          title="Share category"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="w-3.5 h-3.5"
+          >
+            <path d="M13 4.5a2.5 2.5 0 11.702 1.737L6.97 9.604a2.518 2.518 0 010 .792l6.733 3.367a2.5 2.5 0 11-.671 1.341l-6.733-3.367a2.5 2.5 0 110-3.475l6.733-3.366A2.52 2.52 0 0113 4.5z" />
+          </svg>
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+          className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-accent rounded-full bg-primary"
+          title="Delete category"
+        >
+          ×
+        </button>
+      </div>
     </div>
   )
 }
@@ -445,12 +639,12 @@ function TaskList({
 
   const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
     try {
-      const { error } = await supabase
-        .from('tasks')
-        .update(updates)
-        .eq('id', taskId)
-
-      if (error) throw error
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      })
+      if (!res.ok) throw new Error('Failed to update task')
       onUpdate()
       setEditingTask(null)
     } catch (error) {

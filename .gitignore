@@ -23,6 +23,9 @@
 # misc
 .DS_Store
 *.pem
+# backup excel files
+backup*.xls*
+
 
 # debug
 npm-debug.log*
