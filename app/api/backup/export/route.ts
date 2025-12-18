@@ -8,23 +8,25 @@ export async function GET() {
     const user = await requireSessionUser()
     const appUserId = await getOrCreateAppUserId(user.sub!, user.email || null)
 
-    // Get user's categories
+    // Get user's categories with archived status from membership
     const { data: memberRows, error: membersError } = await supabaseAdmin
       .from('category_members')
-      .select('category_id')
+      .select('category_id, archived')
       .eq('user_id', appUserId)
 
     if (membersError) throw membersError
-    const categoryIds = (memberRows || []).map((r: any) => r.category_id)
-
-    if (categoryIds.length === 0) {
+    
+    if (!memberRows || memberRows.length === 0) {
       return NextResponse.json({ error: 'No categories found to export' }, { status: 404 })
     }
 
-    // Fetch categories (including archived ones for backup)
+    const categoryIds = memberRows.map((r: any) => r.category_id)
+    const archivedMap = new Map(memberRows.map((r: any) => [r.category_id, r.archived]))
+
+    // Fetch categories
     const { data: categories, error: catsError } = await supabaseAdmin
       .from('categories')
-      .select('id, name, archived')
+      .select('id, name')
       .in('id', categoryIds)
       .order('sort_order', { ascending: true })
 
@@ -39,18 +41,17 @@ export async function GET() {
 
     if (tasksError) throw tasksError
 
-    // Create maps for category info
+    // Create map for category names
     const categoryMap = new Map(categories?.map(c => [c.id, c.name]) || [])
-    const categoryArchivedMap = new Map(categories?.map(c => [c.id, c.archived]) || [])
 
-    // Format data for Excel export (including Archived column)
+    // Format data for Excel export (including Archived column from user's membership)
     const excelData = (tasks || []).map(task => ({
       Category: categoryMap.get(task.category_id) || 'Unknown',
       Task: task.name,
       Date: task.date,
       Favorite: task.favorited ? 'Yes' : 'No',
       Status: task.completed ? 'Completed' : 'Active',
-      Archived: categoryArchivedMap.get(task.category_id) ? 'Yes' : 'No'
+      Archived: archivedMap.get(task.category_id) ? 'Yes' : 'No'
     }))
 
     // Create workbook
@@ -83,4 +84,3 @@ export async function GET() {
     })
   }
 }
-

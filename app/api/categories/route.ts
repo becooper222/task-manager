@@ -11,29 +11,33 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const includeArchived = searchParams.get('include_archived') === 'true'
 
-    const { data: memberRows, error: membersError } = await supabaseAdmin
+    // Get user's category memberships with archived status
+    let memberQuery = supabaseAdmin
       .from('category_members')
-      .select('category_id')
+      .select('category_id, archived')
       .eq('user_id', appUserId)
+    
+    if (!includeArchived) {
+      memberQuery = memberQuery.eq('archived', false)
+    }
+
+    const { data: memberRows, error: membersError } = await memberQuery
 
     if (membersError) throw membersError
-    const categoryIds = (memberRows || []).map((r: any) => r.category_id)
-
-    if (categoryIds.length === 0) {
+    
+    if (!memberRows || memberRows.length === 0) {
       return NextResponse.json([])
     }
 
-    // Build query - filter out archived by default
-    let query = supabaseAdmin
+    const categoryIds = memberRows.map((r: any) => r.category_id)
+    const archivedMap = new Map(memberRows.map((r: any) => [r.category_id, r.archived]))
+
+    // Get categories
+    const { data: categories, error: catsError } = await supabaseAdmin
       .from('categories')
-      .select('id, name, sort_order, archived')
+      .select('id, name, sort_order')
       .in('id', categoryIds)
-    
-    if (!includeArchived) {
-      query = query.eq('archived', false)
-    }
-    
-    const { data: categories, error: catsError } = await query.order('sort_order', { ascending: true })
+      .order('sort_order', { ascending: true })
 
     if (catsError) throw catsError
 
@@ -47,10 +51,10 @@ export async function GET(request: Request) {
         
         if (countError) {
           console.error('Error counting members:', countError)
-          return { ...cat, member_count: 1 }
+          return { ...cat, archived: archivedMap.get(cat.id) || false, member_count: 1 }
         }
         
-        return { ...cat, member_count: members?.length || 1 }
+        return { ...cat, archived: archivedMap.get(cat.id) || false, member_count: members?.length || 1 }
       })
     )
 
@@ -72,22 +76,22 @@ export async function POST(request: Request) {
     const user = await requireSessionUser()
     const appUserId = await getOrCreateAppUserId(user.sub!, user.email || null)
 
-    // Get user's category memberships
-    const { data: memberRows, error: membersError } = await supabaseAdmin
+    // Get user's archived category memberships
+    const { data: archivedMemberRows, error: membersError } = await supabaseAdmin
       .from('category_members')
       .select('category_id')
       .eq('user_id', appUserId)
+      .eq('archived', true)
 
     if (membersError) throw membersError
-    const categoryIds = (memberRows || []).map((r: any) => r.category_id)
+    const archivedCategoryIds = (archivedMemberRows || []).map((r: any) => r.category_id)
 
     // Check if there's an archived category with the same name
-    if (categoryIds.length > 0) {
+    if (archivedCategoryIds.length > 0) {
       const { data: existingArchived, error: archivedCheckError } = await supabaseAdmin
         .from('categories')
         .select('id, name')
-        .in('id', categoryIds)
-        .eq('archived', true)
+        .in('id', archivedCategoryIds)
         .ilike('name', name)
         .single()
 
@@ -104,13 +108,22 @@ export async function POST(request: Request) {
       }
     }
 
+    // Get all user's categories to determine next sort order
+    const { data: allMemberRows, error: allMembersError } = await supabaseAdmin
+      .from('category_members')
+      .select('category_id')
+      .eq('user_id', appUserId)
+
+    if (allMembersError) throw allMembersError
+    const allCategoryIds = (allMemberRows || []).map((r: any) => r.category_id)
+
     // Determine next sort order from user's categories
     let nextOrder = 0
-    if (categoryIds.length > 0) {
+    if (allCategoryIds.length > 0) {
       const { data: cats, error: catsError } = await supabaseAdmin
         .from('categories')
         .select('sort_order')
-        .in('id', categoryIds)
+        .in('id', allCategoryIds)
       if (catsError) throw catsError
       const maxSort = Math.max(-1, ...(cats || []).map((c: any) => c.sort_order))
       nextOrder = maxSort + 1
@@ -118,23 +131,21 @@ export async function POST(request: Request) {
 
     const { data: category, error: insertCatErr } = await supabaseAdmin
       .from('categories')
-      .insert({ name, sort_order: nextOrder, archived: false })
-      .select('id, name, sort_order, archived')
+      .insert({ name, sort_order: nextOrder })
+      .select('id, name, sort_order')
       .single()
 
     if (insertCatErr) throw insertCatErr
 
     const { error: memberErr } = await supabaseAdmin
       .from('category_members')
-      .insert({ category_id: category.id, user_id: appUserId, role: 'owner' })
+      .insert({ category_id: category.id, user_id: appUserId, role: 'owner', archived: false })
 
     if (memberErr) throw memberErr
 
-    return NextResponse.json(category)
+    return NextResponse.json({ ...category, archived: false })
   } catch (e: any) {
     console.error('POST /api/categories error:', e)
     return NextResponse.json({ error: e.message }, { status: e.message === 'Unauthorized' ? 401 : 500 })
   }
 }
-
-

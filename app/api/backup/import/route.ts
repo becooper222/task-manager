@@ -29,13 +29,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No data found in file' }, { status: 400 })
     }
 
-    // Get user's existing categories to find max sort_order
+    // Get user's existing categories with archived status from membership
     const { data: memberRows } = await supabaseAdmin
       .from('category_members')
-      .select('category_id')
+      .select('category_id, archived')
       .eq('user_id', appUserId)
 
     const categoryIds = (memberRows || []).map((r: any) => r.category_id)
+    const archivedCategoryIds = (memberRows || [])
+      .filter((r: any) => r.archived)
+      .map((r: any) => r.category_id)
+    
     let maxSortOrder = -1
 
     if (categoryIds.length > 0) {
@@ -80,14 +84,13 @@ export async function POST(request: Request) {
       })
     }
 
-    // Check for conflicts with existing archived categories
+    // Check for conflicts with existing archived categories (from user's membership)
     const conflictingCategories: string[] = []
-    if (categoryIds.length > 0) {
+    if (archivedCategoryIds.length > 0) {
       const { data: existingArchivedCats } = await supabaseAdmin
         .from('categories')
         .select('name')
-        .in('id', categoryIds)
-        .eq('archived', true)
+        .in('id', archivedCategoryIds)
 
       const existingArchivedNames = new Set(
         (existingArchivedCats || []).map((c: any) => c.name.toLowerCase())
@@ -116,10 +119,10 @@ export async function POST(request: Request) {
     let currentSortOrder = maxSortOrder + 1
 
     for (const [categoryName, categoryData] of categoryMap.entries()) {
-      // Create category with archived status from backup
+      // Create category (without archived - that's per-user on category_members)
       const { data: category, error: catError } = await supabaseAdmin
         .from('categories')
-        .insert({ name: categoryName, sort_order: currentSortOrder, archived: categoryData.archived })
+        .insert({ name: categoryName, sort_order: currentSortOrder })
         .select('id')
         .single()
 
@@ -131,10 +134,15 @@ export async function POST(request: Request) {
       stats.categoriesCreated++
       currentSortOrder++
 
-      // Add user as owner of the category
+      // Add user as owner of the category with archived status from backup
       await supabaseAdmin
         .from('category_members')
-        .insert({ category_id: category.id, user_id: appUserId, role: 'owner' })
+        .insert({ 
+          category_id: category.id, 
+          user_id: appUserId, 
+          role: 'owner',
+          archived: categoryData.archived 
+        })
 
       // Create tasks
       const tasksToInsert = categoryData.tasks.map(task => ({
@@ -236,4 +244,3 @@ function parseArchived(value: any): boolean {
   if (typeof value === 'number') return value === 1
   return false
 }
-

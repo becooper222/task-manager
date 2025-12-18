@@ -482,7 +482,7 @@ export default function Dashboard() {
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex space-x-2 mb-6 bg-primary p-2 rounded-lg shadow overflow-x-auto">
+          <div className="flex space-x-2 mb-6 mt-6 bg-primary p-2 rounded-lg shadow overflow-x-auto">
             <button
               onClick={() => setSelectedCategory('overview')}
               className={`px-4 py-2 rounded-md ${
@@ -721,7 +721,7 @@ function SortableCategory({
             e.stopPropagation()
             onShare()
           }}
-          className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-accent rounded-full bg-primary"
+          className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-secondary rounded-full bg-primary border border-accent shadow-sm"
           title="Share category"
         >
           <svg
@@ -740,7 +740,7 @@ function SortableCategory({
               e.stopPropagation()
               setShowMenu(!showMenu)
             }}
-            className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-accent rounded-full bg-primary"
+            className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-secondary rounded-full bg-primary border border-accent shadow-sm"
             title="Category options"
           >
             <svg
@@ -753,20 +753,20 @@ function SortableCategory({
             </svg>
           </button>
           {showMenu && (
-            <div className="absolute right-0 top-full mt-1 w-36 bg-primary rounded-lg shadow-lg border border-accent z-50">
+            <div className="absolute right-0 bottom-full mb-1 w-40 bg-primary rounded-lg shadow-xl border border-accent z-[100]">
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   setShowMenu(false)
                   onArchive()
                 }}
-                className="w-full px-3 py-2 text-left text-sm text-text-primary hover:bg-accent rounded-t-lg flex items-center gap-2"
+                className="w-full px-4 py-3 text-left text-sm text-text-primary hover:bg-secondary rounded-t-lg flex items-center gap-3 border-b border-accent/50"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 20 20"
                   fill="currentColor"
-                  className="w-4 h-4"
+                  className="w-5 h-5 text-amber-500"
                 >
                   <path d="M2 3a1 1 0 00-1 1v1a1 1 0 001 1h16a1 1 0 001-1V4a1 1 0 00-1-1H2z" />
                   <path fillRule="evenodd" d="M2 7.5h16l-.811 7.71a2 2 0 01-1.99 1.79H4.802a2 2 0 01-1.99-1.79L2 7.5zM7 11a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z" clipRule="evenodd" />
@@ -779,13 +779,13 @@ function SortableCategory({
                   setShowMenu(false)
                   onDelete()
                 }}
-                className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-accent rounded-b-lg flex items-center gap-2"
+                className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-secondary rounded-b-lg flex items-center gap-3"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 20 20"
                   fill="currentColor"
-                  className="w-4 h-4"
+                  className="w-5 h-5"
                 >
                   <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
                 </svg>

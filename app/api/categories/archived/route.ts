@@ -7,11 +7,12 @@ export async function GET() {
     const user = await requireSessionUser()
     const appUserId = await getOrCreateAppUserId(user.sub!, user.email || null)
 
-    // Get user's category memberships
+    // Get user's archived category memberships
     const { data: memberRows, error: membersError } = await supabaseAdmin
       .from('category_members')
       .select('category_id')
       .eq('user_id', appUserId)
+      .eq('archived', true)
 
     if (membersError) throw membersError
     const categoryIds = (memberRows || []).map((r: any) => r.category_id)
@@ -20,12 +21,11 @@ export async function GET() {
       return NextResponse.json([])
     }
 
-    // Get only archived categories
+    // Get archived categories
     const { data: categories, error: catsError } = await supabaseAdmin
       .from('categories')
-      .select('id, name, sort_order, archived')
+      .select('id, name, sort_order')
       .in('id', categoryIds)
-      .eq('archived', true)
       .order('sort_order', { ascending: true })
 
     if (catsError) throw catsError
@@ -40,10 +40,10 @@ export async function GET() {
 
         if (countError) {
           console.error('Error counting tasks:', countError)
-          return { ...cat, task_count: 0 }
+          return { ...cat, archived: true, task_count: 0 }
         }
 
-        return { ...cat, task_count: count || 0 }
+        return { ...cat, archived: true, task_count: count || 0 }
       })
     )
 
@@ -53,4 +53,3 @@ export async function GET() {
     return NextResponse.json({ error: e.message }, { status: e.message === 'Unauthorized' ? 401 : 500 })
   }
 }
-
