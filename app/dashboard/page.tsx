@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [showBackupMenu, setShowBackupMenu] = useState(false)
   const backupMenuRef = useRef<HTMLDivElement>(null)
   const [sharingCategoryId, setSharingCategoryId] = useState<string | null>(null)
+  const [optionsCategoryId, setOptionsCategoryId] = useState<string | null>(null)
   const [archivedCategories, setArchivedCategories] = useState<ArchivedCategory[]>([])
   const [showArchivedModal, setShowArchivedModal] = useState(false)
   const [categoryError, setCategoryError] = useState<string | null>(null)
@@ -482,7 +483,7 @@ export default function Dashboard() {
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex space-x-2 mb-6 mt-6 bg-primary p-2 rounded-lg shadow overflow-x-auto">
+          <div className="flex space-x-2 mb-6 bg-primary p-2 rounded-lg shadow overflow-x-auto">
             <button
               onClick={() => setSelectedCategory('overview')}
               className={`px-4 py-2 rounded-md ${
@@ -503,8 +504,7 @@ export default function Dashboard() {
                   category={category}
                   isSelected={selectedCategory === category.id}
                   onSelect={() => setSelectedCategory(category.id)}
-                  onDelete={() => handleDeleteCategory(category.id)}
-                  onArchive={() => handleArchiveCategory(category.id)}
+                  onShowOptions={() => setOptionsCategoryId(category.id)}
                   onShare={() => setSharingCategoryId(category.id)}
                 />
               ))}
@@ -640,6 +640,21 @@ export default function Dashboard() {
           onDelete={handleDeleteArchivedCategory}
         />
       )}
+
+      {optionsCategoryId && (
+        <CategoryOptionsModal
+          categoryName={categories.find((c) => c.id === optionsCategoryId)?.name || ''}
+          onClose={() => setOptionsCategoryId(null)}
+          onArchive={() => {
+            handleArchiveCategory(optionsCategoryId)
+            setOptionsCategoryId(null)
+          }}
+          onDelete={() => {
+            handleDeleteCategory(optionsCategoryId)
+            setOptionsCategoryId(null)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -648,20 +663,15 @@ function SortableCategory({
   category,
   isSelected,
   onSelect,
-  onDelete,
-  onArchive,
+  onShowOptions,
   onShare,
 }: {
   category: Category
   isSelected: boolean
   onSelect: () => void
-  onDelete: () => void
-  onArchive: () => void
+  onShowOptions: () => void
   onShare: () => void
 }) {
-  const [showMenu, setShowMenu] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-  
   const {
     attributes,
     listeners,
@@ -678,19 +688,6 @@ function SortableCategory({
   }
 
   const isShared = (category.member_count ?? 1) > 1
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowMenu(false)
-      }
-    }
-    if (showMenu) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showMenu])
 
   return (
     <div
@@ -733,66 +730,103 @@ function SortableCategory({
             <path d="M13 4.5a2.5 2.5 0 11.702 1.737L6.97 9.604a2.518 2.518 0 010 .792l6.733 3.367a2.5 2.5 0 11-.671 1.341l-6.733-3.367a2.5 2.5 0 110-3.475l6.733-3.366A2.52 2.52 0 0113 4.5z" />
           </svg>
         </button>
-        {/* Category options menu */}
-        <div className="relative" ref={menuRef}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onShowOptions()
+          }}
+          className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-secondary rounded-full bg-primary border border-accent shadow-sm"
+          title="Category options"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="w-3.5 h-3.5"
+          >
+            <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Category Options Modal Component
+function CategoryOptionsModal({
+  categoryName,
+  onClose,
+  onArchive,
+  onDelete,
+}: {
+  categoryName: string
+  onClose: () => void
+  onArchive: () => void
+  onDelete: () => void
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-primary rounded-lg shadow-xl w-full max-w-sm mx-4">
+        <div className="p-4 border-b border-accent flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text-primary">{categoryName}</h2>
           <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setShowMenu(!showMenu)
-            }}
-            className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-secondary rounded-full bg-primary border border-accent shadow-sm"
-            title="Category options"
+            onClick={onClose}
+            className="text-text-secondary hover:text-text-primary"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 20 20"
               fill="currentColor"
-              className="w-3.5 h-3.5"
+              className="w-5 h-5"
             >
-              <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
             </svg>
           </button>
-          {showMenu && (
-            <div className="absolute right-0 bottom-full mb-1 w-40 bg-primary rounded-lg shadow-xl border border-accent z-[100]">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowMenu(false)
-                  onArchive()
-                }}
-                className="w-full px-4 py-3 text-left text-sm text-text-primary hover:bg-secondary rounded-t-lg flex items-center gap-3 border-b border-accent/50"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className="w-5 h-5 text-amber-500"
-                >
-                  <path d="M2 3a1 1 0 00-1 1v1a1 1 0 001 1h16a1 1 0 001-1V4a1 1 0 00-1-1H2z" />
-                  <path fillRule="evenodd" d="M2 7.5h16l-.811 7.71a2 2 0 01-1.99 1.79H4.802a2 2 0 01-1.99-1.79L2 7.5zM7 11a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z" clipRule="evenodd" />
-                </svg>
-                Archive
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowMenu(false)
-                  onDelete()
-                }}
-                className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-secondary rounded-b-lg flex items-center gap-3"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className="w-5 h-5"
-                >
-                  <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
-                </svg>
-                Delete
-              </button>
+        </div>
+        <div className="p-4 space-y-3">
+          <button
+            onClick={onArchive}
+            className="w-full px-4 py-3 text-left text-text-primary bg-secondary hover:bg-accent rounded-lg flex items-center gap-3 transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="w-5 h-5 text-amber-500"
+            >
+              <path d="M2 3a1 1 0 00-1 1v1a1 1 0 001 1h16a1 1 0 001-1V4a1 1 0 00-1-1H2z" />
+              <path fillRule="evenodd" d="M2 7.5h16l-.811 7.71a2 2 0 01-1.99 1.79H4.802a2 2 0 01-1.99-1.79L2 7.5zM7 11a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <div className="font-medium">Archive</div>
+              <div className="text-sm text-text-secondary">Hide this category from view</div>
             </div>
-          )}
+          </button>
+          <button
+            onClick={onDelete}
+            className="w-full px-4 py-3 text-left text-red-400 bg-secondary hover:bg-red-900/20 rounded-lg flex items-center gap-3 transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="w-5 h-5"
+            >
+              <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <div className="font-medium">Delete</div>
+              <div className="text-sm text-text-secondary">Permanently remove this category</div>
+            </div>
+          </button>
+        </div>
+        <div className="p-4 border-t border-accent">
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 bg-accent text-text-primary rounded-md hover:bg-secondary"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </div>
