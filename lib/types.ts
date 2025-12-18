@@ -2,6 +2,7 @@ export type Category = {
   id: string
   name: string
   sort_order: number
+  archived: boolean
   inserted_at: string
   updated_at: string
   member_count?: number

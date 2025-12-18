@@ -50,10 +50,10 @@ export async function POST(request: Request) {
     }
 
     // Process data: Group tasks by category
-    const categoryMap = new Map<string, any[]>()
+    const categoryMap = new Map<string, { tasks: any[], archived: boolean }>()
     
     for (const row of jsonData) {
-      // Expected columns: Category, Task, Date, Favorite, Status/Completed (or similar variations)
+      // Expected columns: Category, Task, Date, Favorite, Status/Completed, Archived (or similar variations)
       const categoryName = row.Category || row.category || row.CATEGORY
       const taskName = row.Task || row.task || row.TASK || row.Name || row.name
       const taskDate = row.Date || row.date || row.DATE
@@ -62,21 +62,49 @@ export async function POST(request: Request) {
       const completedValue = row.Status || row.status || row.STATUS || 
                              row.Completed || row.completed || row.COMPLETED || 
                              row.Complete || row.complete
+      const archivedValue = row.Archived || row.archived || row.ARCHIVED
 
       if (!categoryName || !taskName) {
         continue // Skip rows without required data
       }
 
       if (!categoryMap.has(categoryName)) {
-        categoryMap.set(categoryName, [])
+        categoryMap.set(categoryName, { tasks: [], archived: parseArchived(archivedValue) })
       }
 
-      categoryMap.get(categoryName)!.push({
+      categoryMap.get(categoryName)!.tasks.push({
         name: taskName,
         date: taskDate ? formatDate(taskDate) : new Date().toISOString().split('T')[0],
         favorited: parseFavorite(favorite),
         completed: parseCompleted(completedValue),
       })
+    }
+
+    // Check for conflicts with existing archived categories
+    const conflictingCategories: string[] = []
+    if (categoryIds.length > 0) {
+      const { data: existingArchivedCats } = await supabaseAdmin
+        .from('categories')
+        .select('name')
+        .in('id', categoryIds)
+        .eq('archived', true)
+
+      const existingArchivedNames = new Set(
+        (existingArchivedCats || []).map((c: any) => c.name.toLowerCase())
+      )
+
+      for (const categoryName of categoryMap.keys()) {
+        if (existingArchivedNames.has(categoryName.toLowerCase())) {
+          conflictingCategories.push(categoryName)
+        }
+      }
+    }
+
+    if (conflictingCategories.length > 0) {
+      return NextResponse.json({
+        error: `The following category names conflict with archived categories: ${conflictingCategories.join(', ')}. Please restore or delete the archived categories first.`,
+        conflictingCategories,
+      }, { status: 409 })
     }
 
     // Create categories and tasks
@@ -87,11 +115,11 @@ export async function POST(request: Request) {
 
     let currentSortOrder = maxSortOrder + 1
 
-    for (const [categoryName, tasks] of categoryMap.entries()) {
-      // Create category
+    for (const [categoryName, categoryData] of categoryMap.entries()) {
+      // Create category with archived status from backup
       const { data: category, error: catError } = await supabaseAdmin
         .from('categories')
-        .insert({ name: categoryName, sort_order: currentSortOrder })
+        .insert({ name: categoryName, sort_order: currentSortOrder, archived: categoryData.archived })
         .select('id')
         .single()
 
@@ -109,7 +137,7 @@ export async function POST(request: Request) {
         .insert({ category_id: category.id, user_id: appUserId, role: 'owner' })
 
       // Create tasks
-      const tasksToInsert = tasks.map(task => ({
+      const tasksToInsert = categoryData.tasks.map(task => ({
         category_id: category.id,
         user_id: appUserId,
         name: task.name,
@@ -127,7 +155,7 @@ export async function POST(request: Request) {
         continue
       }
 
-      stats.tasksCreated += tasks.length
+      stats.tasksCreated += categoryData.tasks.length
     }
 
     return NextResponse.json({
@@ -196,5 +224,16 @@ function formatDate(value: any): string {
   }
   
   return new Date().toISOString().split('T')[0]
+}
+
+// Helper function to parse archived value
+function parseArchived(value: any): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') {
+    const lower = value.toLowerCase().trim()
+    return lower === 'true' || lower === 'yes' || lower === '1' || lower === 'y'
+  }
+  if (typeof value === 'number') return value === 1
+  return false
 }
 

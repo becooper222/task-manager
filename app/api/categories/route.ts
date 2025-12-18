@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getOrCreateAppUserId, requireSessionUser } from '@/lib/auth-helpers'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await requireSessionUser()
     const appUserId = await getOrCreateAppUserId(user.sub!, user.email || null)
+
+    // Check for query params
+    const { searchParams } = new URL(request.url)
+    const includeArchived = searchParams.get('include_archived') === 'true'
 
     const { data: memberRows, error: membersError } = await supabaseAdmin
       .from('category_members')
@@ -19,11 +23,17 @@ export async function GET() {
       return NextResponse.json([])
     }
 
-    const { data: categories, error: catsError } = await supabaseAdmin
+    // Build query - filter out archived by default
+    let query = supabaseAdmin
       .from('categories')
-      .select('id, name, sort_order')
+      .select('id, name, sort_order, archived')
       .in('id', categoryIds)
-      .order('sort_order', { ascending: true })
+    
+    if (!includeArchived) {
+      query = query.eq('archived', false)
+    }
+    
+    const { data: categories, error: catsError } = await query.order('sort_order', { ascending: true })
 
     if (catsError) throw catsError
 
@@ -62,7 +72,7 @@ export async function POST(request: Request) {
     const user = await requireSessionUser()
     const appUserId = await getOrCreateAppUserId(user.sub!, user.email || null)
 
-    // Determine next sort order from user's categories
+    // Get user's category memberships
     const { data: memberRows, error: membersError } = await supabaseAdmin
       .from('category_members')
       .select('category_id')
@@ -70,6 +80,31 @@ export async function POST(request: Request) {
 
     if (membersError) throw membersError
     const categoryIds = (memberRows || []).map((r: any) => r.category_id)
+
+    // Check if there's an archived category with the same name
+    if (categoryIds.length > 0) {
+      const { data: existingArchived, error: archivedCheckError } = await supabaseAdmin
+        .from('categories')
+        .select('id, name')
+        .in('id', categoryIds)
+        .eq('archived', true)
+        .ilike('name', name)
+        .single()
+
+      if (archivedCheckError && archivedCheckError.code !== 'PGRST116') {
+        // PGRST116 = no rows returned, which is expected
+        throw archivedCheckError
+      }
+
+      if (existingArchived) {
+        return NextResponse.json(
+          { error: 'A category with this name already exists in your archived categories. Please restore it or use a different name.' },
+          { status: 409 }
+        )
+      }
+    }
+
+    // Determine next sort order from user's categories
     let nextOrder = 0
     if (categoryIds.length > 0) {
       const { data: cats, error: catsError } = await supabaseAdmin
@@ -83,8 +118,8 @@ export async function POST(request: Request) {
 
     const { data: category, error: insertCatErr } = await supabaseAdmin
       .from('categories')
-      .insert({ name, sort_order: nextOrder })
-      .select('id, name, sort_order')
+      .insert({ name, sort_order: nextOrder, archived: false })
+      .select('id, name, sort_order, archived')
       .single()
 
     if (insertCatErr) throw insertCatErr

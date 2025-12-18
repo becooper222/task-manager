@@ -8,6 +8,9 @@ import { useUser } from '@auth0/nextjs-auth0/client'
 import { Category, Task } from '@/lib/types'
 import ShareCategoryModal from './ShareCategoryModal'
 
+// Type for archived categories with task count
+type ArchivedCategory = Category & { task_count: number }
+
 export default function Dashboard() {
   const { user } = useUser()
   const [categories, setCategories] = useState<Category[]>([])
@@ -25,11 +28,15 @@ export default function Dashboard() {
   const [showBackupMenu, setShowBackupMenu] = useState(false)
   const backupMenuRef = useRef<HTMLDivElement>(null)
   const [sharingCategoryId, setSharingCategoryId] = useState<string | null>(null)
+  const [archivedCategories, setArchivedCategories] = useState<ArchivedCategory[]>([])
+  const [showArchivedModal, setShowArchivedModal] = useState(false)
+  const [categoryError, setCategoryError] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
       fetchCategories()
       fetchTasks()
+      fetchArchivedCategories()
     }
   }, [user])
 
@@ -70,6 +77,17 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Error fetching tasks:', error)
       setLoading(false)
+    }
+  }
+
+  const fetchArchivedCategories = async () => {
+    try {
+      const res = await fetch('/api/categories/archived', { cache: 'no-store' })
+      if (!res.ok) throw new Error('Failed to fetch archived categories')
+      const data: ArchivedCategory[] = await res.json()
+      setArchivedCategories(data)
+    } catch (error) {
+      console.error('Error fetching archived categories:', error)
     }
   }
 
@@ -131,6 +149,7 @@ export default function Dashboard() {
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim() || !user) return
+    setCategoryError(null)
 
     try {
       const res = await fetch('/api/categories', {
@@ -138,10 +157,19 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newCategoryName })
       })
-      if (!res.ok) throw new Error('Failed to add category')
+      
+      if (!res.ok) {
+        const data = await res.json()
+        if (res.status === 409) {
+          setCategoryError(data.error || 'A category with this name already exists in your archived categories.')
+          return
+        }
+        throw new Error('Failed to add category')
+      }
       
       setNewCategoryName('')
       setShowCategoryInput(false)
+      setCategoryError(null)
       fetchCategories()
     } catch (error) {
       console.error('Error adding category:', error)
@@ -194,6 +222,74 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error deleting category:', error)
+    }
+  }
+
+  const handleArchiveCategory = async (categoryId: string) => {
+    if (!user) return
+    
+    try {
+      const res = await fetch(`/api/categories/${categoryId}/archive`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived: true })
+      })
+      if (!res.ok) throw new Error('Failed to archive category')
+      
+      // Refresh categories
+      fetchCategories()
+      fetchArchivedCategories()
+      
+      // If the archived category was selected, switch to overview
+      if (selectedCategory === categoryId) {
+        setSelectedCategory('overview')
+      }
+    } catch (error) {
+      console.error('Error archiving category:', error)
+    }
+  }
+
+  const handleRestoreCategory = async (categoryId: string) => {
+    if (!user) return
+    
+    try {
+      const res = await fetch(`/api/categories/${categoryId}/archive`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived: false })
+      })
+      if (!res.ok) throw new Error('Failed to restore category')
+      
+      // Refresh categories
+      fetchCategories()
+      fetchArchivedCategories()
+    } catch (error) {
+      console.error('Error restoring category:', error)
+    }
+  }
+
+  const handleDeleteArchivedCategory = async (categoryId: string) => {
+    if (!user) return
+    
+    const category = archivedCategories.find(c => c.id === categoryId)
+    const taskCount = category?.task_count || 0
+    
+    const confirmed = window.confirm(
+      taskCount > 0
+        ? `This archived category contains ${taskCount} task${taskCount === 1 ? '' : 's'}. Are you sure you want to permanently delete it? This action cannot be undone.`
+        : 'Are you sure you want to permanently delete this archived category? This action cannot be undone.'
+    )
+    
+    if (!confirmed) return
+    
+    try {
+      const res = await fetch(`/api/categories/${categoryId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to delete category')
+      
+      fetchArchivedCategories()
+      fetchTasks()
+    } catch (error) {
+      console.error('Error deleting archived category:', error)
     }
   }
 
@@ -297,6 +393,15 @@ export default function Dashboard() {
             </a>
           </div>
           <div className="flex gap-2">
+            {/* Archived Categories Button - only show if there are archived categories */}
+            {archivedCategories.length > 0 && (
+              <button
+                onClick={() => setShowArchivedModal(true)}
+                className="px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-accent"
+              >
+                Archived ({archivedCategories.length})
+              </button>
+            )}
             {/* Backup & Import Dropdown */}
             <div className="relative" ref={backupMenuRef}>
               <button
@@ -399,43 +504,56 @@ export default function Dashboard() {
                   isSelected={selectedCategory === category.id}
                   onSelect={() => setSelectedCategory(category.id)}
                   onDelete={() => handleDeleteCategory(category.id)}
+                  onArchive={() => handleArchiveCategory(category.id)}
                   onShare={() => setSharingCategoryId(category.id)}
                 />
               ))}
             </SortableContext>
             
             {showCategoryInput ? (
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="Category name"
-                  className="px-3 py-2 bg-secondary border border-accent rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleAddCategory()
-                    if (e.key === 'Escape') {
+              <div className="flex flex-col gap-2">
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => {
+                      setNewCategoryName(e.target.value)
+                      setCategoryError(null)
+                    }}
+                    placeholder="Category name"
+                    className={`px-3 py-2 bg-secondary border rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent ${categoryError ? 'border-red-500' : 'border-accent'}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleAddCategory()
+                      if (e.key === 'Escape') {
+                        setShowCategoryInput(false)
+                        setNewCategoryName('')
+                        setCategoryError(null)
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleAddCategory}
+                    className="px-3 py-2 bg-accent text-text-primary rounded-md hover:bg-secondary"
+                  >
+                    Add
+                  </button>
+                  <button
+                    onClick={() => {
                       setShowCategoryInput(false)
                       setNewCategoryName('')
-                    }
-                  }}
-                  autoFocus
-                />
-                <button
-                  onClick={handleAddCategory}
-                  className="px-3 py-2 bg-accent text-text-primary rounded-md hover:bg-secondary"
-                >
-                  Add
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCategoryInput(false)
-                    setNewCategoryName('')
-                  }}
-                  className="px-3 py-2 bg-secondary text-text-primary rounded-md hover:bg-accent"
-                >
-                  Cancel
-                </button>
+                      setCategoryError(null)
+                    }}
+                    className="px-3 py-2 bg-secondary text-text-primary rounded-md hover:bg-accent"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {categoryError && (
+                  <div className="text-red-400 text-sm max-w-md">
+                    {categoryError}
+                  </div>
+                )}
               </div>
             ) : (
               <button
@@ -513,6 +631,15 @@ export default function Dashboard() {
           onMembersChanged={fetchCategories}
         />
       )}
+
+      {showArchivedModal && (
+        <ArchivedCategoriesModal
+          archivedCategories={archivedCategories}
+          onClose={() => setShowArchivedModal(false)}
+          onRestore={handleRestoreCategory}
+          onDelete={handleDeleteArchivedCategory}
+        />
+      )}
     </div>
   )
 }
@@ -522,14 +649,19 @@ function SortableCategory({
   isSelected,
   onSelect,
   onDelete,
+  onArchive,
   onShare,
 }: {
   category: Category
   isSelected: boolean
   onSelect: () => void
   onDelete: () => void
+  onArchive: () => void
   onShare: () => void
 }) {
+  const [showMenu, setShowMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  
   const {
     attributes,
     listeners,
@@ -546,6 +678,19 @@ function SortableCategory({
   }
 
   const isShared = (category.member_count ?? 1) > 1
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showMenu])
 
   return (
     <div
@@ -588,16 +733,67 @@ function SortableCategory({
             <path d="M13 4.5a2.5 2.5 0 11.702 1.737L6.97 9.604a2.518 2.518 0 010 .792l6.733 3.367a2.5 2.5 0 11-.671 1.341l-6.733-3.367a2.5 2.5 0 110-3.475l6.733-3.366A2.52 2.52 0 0113 4.5z" />
           </svg>
         </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-accent rounded-full bg-primary"
-          title="Delete category"
-        >
-          ×
-        </button>
+        {/* Category options menu */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowMenu(!showMenu)
+            }}
+            className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-accent rounded-full bg-primary"
+            title="Category options"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="w-3.5 h-3.5"
+            >
+              <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
+            </svg>
+          </button>
+          {showMenu && (
+            <div className="absolute right-0 top-full mt-1 w-36 bg-primary rounded-lg shadow-lg border border-accent z-50">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowMenu(false)
+                  onArchive()
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-text-primary hover:bg-accent rounded-t-lg flex items-center gap-2"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="w-4 h-4"
+                >
+                  <path d="M2 3a1 1 0 00-1 1v1a1 1 0 001 1h16a1 1 0 001-1V4a1 1 0 00-1-1H2z" />
+                  <path fillRule="evenodd" d="M2 7.5h16l-.811 7.71a2 2 0 01-1.99 1.79H4.802a2 2 0 01-1.99-1.79L2 7.5zM7 11a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z" clipRule="evenodd" />
+                </svg>
+                Archive
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowMenu(false)
+                  onDelete()
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-accent rounded-b-lg flex items-center gap-2"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="w-4 h-4"
+                >
+                  <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+                </svg>
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -824,4 +1020,101 @@ function TaskList({
       )}
     </div>
   )
-} 
+}
+
+// Archived Categories Modal Component
+function ArchivedCategoriesModal({
+  archivedCategories,
+  onClose,
+  onRestore,
+  onDelete,
+}: {
+  archivedCategories: ArchivedCategory[]
+  onClose: () => void
+  onRestore: (categoryId: string) => void
+  onDelete: (categoryId: string) => void
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-primary rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-accent flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text-primary">Archived Categories</h2>
+          <button
+            onClick={onClose}
+            className="text-text-secondary hover:text-text-primary"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="w-5 h-5"
+            >
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
+          </button>
+        </div>
+        <div className="p-4 overflow-y-auto flex-1">
+          {archivedCategories.length === 0 ? (
+            <p className="text-text-secondary text-center py-8">No archived categories</p>
+          ) : (
+            <div className="space-y-3">
+              {archivedCategories.map((category) => (
+                <div
+                  key={category.id}
+                  className="flex items-center justify-between p-3 bg-secondary rounded-lg"
+                >
+                  <div>
+                    <h3 className="font-medium text-text-primary">{category.name}</h3>
+                    <p className="text-sm text-text-secondary">
+                      {category.task_count} task{category.task_count !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => onRestore(category.id)}
+                      className="px-3 py-1.5 text-sm bg-accent text-text-primary rounded-md hover:bg-primary flex items-center gap-1.5"
+                      title="Restore category"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="w-4 h-4"
+                      >
+                        <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
+                      </svg>
+                      Restore
+                    </button>
+                    <button
+                      onClick={() => onDelete(category.id)}
+                      className="px-3 py-1.5 text-sm bg-red-900/30 text-red-400 rounded-md hover:bg-red-900/50 flex items-center gap-1.5"
+                      title="Delete permanently"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="w-4 h-4"
+                      >
+                        <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+                      </svg>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="p-4 border-t border-accent">
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 bg-accent text-text-primary rounded-md hover:bg-secondary"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

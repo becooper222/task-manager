@@ -21,10 +21,10 @@ export async function GET() {
       return NextResponse.json({ error: 'No categories found to export' }, { status: 404 })
     }
 
-    // Fetch categories
+    // Fetch categories (including archived ones for backup)
     const { data: categories, error: catsError } = await supabaseAdmin
       .from('categories')
-      .select('id, name')
+      .select('id, name, archived')
       .in('id', categoryIds)
       .order('sort_order', { ascending: true })
 
@@ -39,16 +39,18 @@ export async function GET() {
 
     if (tasksError) throw tasksError
 
-    // Create a map of category IDs to names
+    // Create maps for category info
     const categoryMap = new Map(categories?.map(c => [c.id, c.name]) || [])
+    const categoryArchivedMap = new Map(categories?.map(c => [c.id, c.archived]) || [])
 
-    // Format data for Excel export
+    // Format data for Excel export (including Archived column)
     const excelData = (tasks || []).map(task => ({
       Category: categoryMap.get(task.category_id) || 'Unknown',
       Task: task.name,
       Date: task.date,
       Favorite: task.favorited ? 'Yes' : 'No',
-      Status: task.completed ? 'Completed' : 'Active'
+      Status: task.completed ? 'Completed' : 'Active',
+      Archived: categoryArchivedMap.get(task.category_id) ? 'Yes' : 'No'
     }))
 
     // Create workbook
