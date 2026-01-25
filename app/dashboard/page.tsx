@@ -5,11 +5,19 @@ import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useS
 import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { Category, Task } from '@/lib/types'
+import { Category, Task, CategoryGitHubRepo } from '@/lib/types'
 import ShareCategoryModal from './ShareCategoryModal'
+import GitHubSettingsModal from './GitHubSettingsModal'
+import ClaudeCodeRunsModal from './ClaudeCodeRunsModal'
 
 // Type for archived categories with task count
 type ArchivedCategory = Category & { task_count: number }
+
+// Type for GitHub connection status
+type GitHubStatus = {
+  connected: boolean
+  username: string | null
+}
 
 export default function Dashboard() {
   const { user } = useUser()
@@ -32,12 +40,17 @@ export default function Dashboard() {
   const [archivedCategories, setArchivedCategories] = useState<ArchivedCategory[]>([])
   const [showArchivedModal, setShowArchivedModal] = useState(false)
   const [categoryError, setCategoryError] = useState<string | null>(null)
+  const [githubStatus, setGithubStatus] = useState<GitHubStatus>({ connected: false, username: null })
+  const [categoryRepos, setCategoryRepos] = useState<Record<string, CategoryGitHubRepo>>({})
+  const [githubSettingsCategoryId, setGithubSettingsCategoryId] = useState<string | null>(null)
+  const [claudeCodeTaskId, setClaudeCodeTaskId] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
       fetchCategories()
       fetchTasks()
       fetchArchivedCategories()
+      fetchGitHubStatus()
     }
   }, [user])
 
@@ -91,6 +104,39 @@ export default function Dashboard() {
       console.error('Error fetching archived categories:', error)
     }
   }
+
+  const fetchGitHubStatus = async () => {
+    try {
+      const res = await fetch('/api/auth/github/status')
+      if (!res.ok) throw new Error('Failed to fetch GitHub status')
+      const data = await res.json()
+      setGithubStatus(data)
+    } catch (error) {
+      console.error('Error fetching GitHub status:', error)
+    }
+  }
+
+  const fetchCategoryRepo = async (categoryId: string) => {
+    try {
+      const res = await fetch(`/api/categories/${categoryId}/github`)
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.repo) {
+        setCategoryRepos((prev) => ({ ...prev, [categoryId]: data.repo }))
+      }
+    } catch (error) {
+      console.error('Error fetching category repo:', error)
+    }
+  }
+
+  // Fetch repos for all categories when categories change
+  useEffect(() => {
+    categories.forEach((cat) => {
+      if (!categoryRepos[cat.id]) {
+        fetchCategoryRepo(cat.id)
+      }
+    })
+  }, [categories])
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -394,6 +440,25 @@ export default function Dashboard() {
             </a>
           </div>
           <div className="flex gap-2">
+            {/* GitHub Connection Status */}
+            {githubStatus.connected ? (
+              <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-primary bg-accent rounded-md">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+                </svg>
+                <span className="hidden sm:inline">{githubStatus.username}</span>
+              </div>
+            ) : (
+              <a
+                href="/api/auth/github"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-accent rounded-md hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-accent"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+                </svg>
+                <span className="hidden sm:inline">Connect GitHub</span>
+              </a>
+            )}
             {/* Archived Categories Button - only show if there are archived categories */}
             {archivedCategories.length > 0 && (
               <button
@@ -506,6 +571,7 @@ export default function Dashboard() {
                   onSelect={() => setSelectedCategory(category.id)}
                   onShowOptions={() => setOptionsCategoryId(category.id)}
                   onShare={() => setSharingCategoryId(category.id)}
+                  hasGitHubRepo={!!categoryRepos[category.id]}
                 />
               ))}
             </SortableContext>
@@ -610,6 +676,8 @@ export default function Dashboard() {
               title="Active Tasks"
               onDeleteTask={handleDeleteTask}
               categories={categories}
+              categoryRepos={categoryRepos}
+              onTriggerClaudeCode={(taskId) => setClaudeCodeTaskId(taskId)}
             />
             <TaskList
               tasks={completedTasks}
@@ -618,6 +686,8 @@ export default function Dashboard() {
               defaultCollapsed
               onDeleteTask={handleDeleteTask}
               categories={categories}
+              categoryRepos={categoryRepos}
+              onTriggerClaudeCode={(taskId) => setClaudeCodeTaskId(taskId)}
             />
           </div>
         </div>
@@ -653,6 +723,28 @@ export default function Dashboard() {
             handleDeleteCategory(optionsCategoryId)
             setOptionsCategoryId(null)
           }}
+          onGitHubSettings={() => {
+            setGithubSettingsCategoryId(optionsCategoryId)
+            setOptionsCategoryId(null)
+          }}
+          hasGitHubRepo={!!categoryRepos[optionsCategoryId]}
+        />
+      )}
+
+      {githubSettingsCategoryId && (
+        <GitHubSettingsModal
+          categoryId={githubSettingsCategoryId}
+          categoryName={categories.find((c) => c.id === githubSettingsCategoryId)?.name || ''}
+          onClose={() => setGithubSettingsCategoryId(null)}
+          onRepoLinked={() => fetchCategoryRepo(githubSettingsCategoryId)}
+        />
+      )}
+
+      {claudeCodeTaskId && (
+        <ClaudeCodeRunsModal
+          taskId={claudeCodeTaskId}
+          taskName={tasks.find((t) => t.id === claudeCodeTaskId)?.name || ''}
+          onClose={() => setClaudeCodeTaskId(null)}
         />
       )}
     </div>
@@ -665,12 +757,14 @@ function SortableCategory({
   onSelect,
   onShowOptions,
   onShare,
+  hasGitHubRepo,
 }: {
   category: Category
   isSelected: boolean
   onSelect: () => void
   onShowOptions: () => void
   onShare: () => void
+  hasGitHubRepo: boolean
 }) {
   const {
     attributes,
@@ -706,6 +800,11 @@ function SortableCategory({
         }`}
       >
         <span>{category.name}</span>
+        {hasGitHubRepo && (
+          <svg className="w-4 h-4 text-text-secondary" fill="currentColor" viewBox="0 0 24 24" aria-label="GitHub linked">
+            <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+          </svg>
+        )}
         {isShared && (
           <span className="inline-flex items-center justify-center w-5 h-5 text-xs bg-accent rounded-full" title={`${category.member_count} members`}>
             {category.member_count}
@@ -758,11 +857,15 @@ function CategoryOptionsModal({
   onClose,
   onArchive,
   onDelete,
+  onGitHubSettings,
+  hasGitHubRepo,
 }: {
   categoryName: string
   onClose: () => void
   onArchive: () => void
   onDelete: () => void
+  onGitHubSettings: () => void
+  hasGitHubRepo: boolean
 }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -784,6 +887,20 @@ function CategoryOptionsModal({
           </button>
         </div>
         <div className="p-4 space-y-3">
+          <button
+            onClick={onGitHubSettings}
+            className="w-full px-4 py-3 text-left text-text-primary bg-secondary hover:bg-accent rounded-lg flex items-center gap-3 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <div className="font-medium">GitHub Settings</div>
+              <div className="text-sm text-text-secondary">
+                {hasGitHubRepo ? 'Manage linked repository' : 'Link a GitHub repository'}
+              </div>
+            </div>
+          </button>
           <button
             onClick={onArchive}
             className="w-full px-4 py-3 text-left text-text-primary bg-secondary hover:bg-accent rounded-lg flex items-center gap-3 transition-colors"
@@ -840,6 +957,8 @@ function TaskList({
   defaultCollapsed = false,
   onDeleteTask,
   categories,
+  categoryRepos,
+  onTriggerClaudeCode,
 }: {
   tasks: Task[]
   onUpdate: () => void
@@ -847,6 +966,8 @@ function TaskList({
   defaultCollapsed?: boolean
   onDeleteTask: (taskId: string) => void
   categories: Category[]
+  categoryRepos: Record<string, CategoryGitHubRepo>
+  onTriggerClaudeCode: (taskId: string) => void
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const [editingTask, setEditingTask] = useState<string | null>(null)
@@ -974,16 +1095,28 @@ function TaskList({
                 )}
               </div>
               <div className="flex items-center gap-2 self-end sm:self-auto">
+                {!editingTask && categoryRepos[task.category_id] && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onTriggerClaudeCode(task.id) }}
+                    className="p-1 text-purple-400 hover:text-purple-300 focus:outline-none"
+                    aria-label="Run Claude Code"
+                    title="Run Claude Code"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                      <path d="M15.98 1.804a1 1 0 00-1.96 0l-.24 1.192a1 1 0 01-.784.785l-1.192.238a1 1 0 000 1.962l1.192.238a1 1 0 01.785.785l.238 1.192a1 1 0 001.962 0l.238-1.192a1 1 0 01.785-.785l1.192-.238a1 1 0 000-1.962l-1.192-.238a1 1 0 01-.785-.785l-.238-1.192zM6.949 5.684a1 1 0 00-1.898 0l-.683 2.051a1 1 0 01-.633.633l-2.051.683a1 1 0 000 1.898l2.051.684a1 1 0 01.633.632l.683 2.051a1 1 0 001.898 0l.683-2.051a1 1 0 01.633-.633l2.051-.683a1 1 0 000-1.898l-2.051-.683a1 1 0 01-.633-.633L6.95 5.684zM13.949 13.684a1 1 0 00-1.898 0l-.184.551a1 1 0 01-.632.633l-.551.183a1 1 0 000 1.898l.551.183a1 1 0 01.633.633l.183.551a1 1 0 001.898 0l.184-.551a1 1 0 01.632-.633l.551-.183a1 1 0 000-1.898l-.551-.184a1 1 0 01-.633-.632l-.183-.551z" />
+                    </svg>
+                  </button>
+                )}
                 {!editingTask && (
                   <button
                     onClick={(e) => { e.stopPropagation(); startEditing(task) }}
                     className="p-1 text-text-secondary hover:text-text-primary focus:outline-none"
                     aria-label="Edit task"
                   >
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      viewBox="0 0 20 20" 
-                      fill="currentColor" 
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
                       className="w-4 h-4"
                     >
                       <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
