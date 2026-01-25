@@ -159,7 +159,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: \${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          claude "\${{ inputs.task_prompt }}" --yes
+          claude "\${{ inputs.task_prompt }}" --dangerously-skip-permissions
 
       - name: Commit changes
         id: commit
@@ -332,6 +332,23 @@ jobs:
                   ))}
                 </select>
               </div>
+              {selectedRepo && (
+                <div className="p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-md">
+                  <div className="flex gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5">
+                      <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                    </svg>
+                    <div className="text-sm">
+                      <p className="font-medium text-yellow-500">Security Warning</p>
+                      <p className="text-yellow-200/80 mt-1">
+                        Claude Code will run with <code className="bg-yellow-900/50 px-1 rounded">--dangerously-skip-permissions</code>,
+                        allowing it to execute commands and modify files without confirmation prompts.
+                        Only link repositories you trust and review all generated pull requests before merging.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
               {error && <p className="text-red-400 text-sm">{error}</p>}
               <button
                 onClick={handleLinkRepo}
