@@ -288,8 +288,24 @@ jobs:
                     <p className="font-medium text-text-primary">Required repository secrets:</p>
                     <ul className="list-disc list-inside space-y-1">
                       <li><code className="bg-accent px-1 rounded">ANTHROPIC_API_KEY</code> - Your Anthropic API key</li>
-                      <li><code className="bg-accent px-1 rounded">TASK_MANAGER_WEBHOOK_SECRET</code> - Contact admin for this value</li>
+                      <li><code className="bg-accent px-1 rounded">TASK_MANAGER_WEBHOOK_SECRET</code> - See value below</li>
                     </ul>
+                    {linkedRepo.webhook_secret && (
+                      <div className="mt-3 p-3 bg-background rounded-md">
+                        <p className="font-medium text-text-primary mb-1">Your Webhook Secret:</p>
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs bg-accent px-2 py-1 rounded break-all flex-1">
+                            {linkedRepo.webhook_secret}
+                          </code>
+                          <button
+                            onClick={() => navigator.clipboard.writeText(linkedRepo.webhook_secret!)}
+                            className="px-2 py-1 text-xs bg-accent rounded hover:bg-primary shrink-0"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

@@ -24,7 +24,7 @@ export async function GET(
 
     const { data, error } = await supabaseAdmin
       .from('category_github_repos')
-      .select('id, repo_owner, repo_name, repo_full_name, default_branch')
+      .select('id, repo_owner, repo_name, repo_full_name, default_branch, webhook_secret')
       .eq('category_id', categoryId)
       .maybeSingle()
 
