@@ -1,0 +1,87 @@
+name: Claude Code Task Runner
+on:
+  workflow_dispatch:
+    inputs:
+      task_prompt:
+        description: 'Task prompt for Claude Code'
+        required: true
+      run_id:
+        description: 'Task manager run ID'
+        required: true
+      callback_url:
+        description: 'Webhook URL for results'
+        required: true
+      branch_name:
+        description: 'Branch to create'
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  run-claude-code:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create branch
+        if: ${{ inputs.branch_name != '' }}
+        run: git checkout -b ${{ inputs.branch_name }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run Claude Code
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude "${{ inputs.task_prompt }}" --dangerously-skip-permissions
+
+      - name: Commit changes
+        id: commit
+        run: |
+          git config user.name "Claude Code Bot"
+          git config user.email "claude-code@noreply.github.com"
+          if [[ -n $(git status --porcelain) ]]; then
+            git add -A
+            git commit -m "Claude Code: ${{ inputs.task_prompt }}"
+            git push origin ${{ inputs.branch_name }}
+            echo "pushed=true" >> $GITHUB_OUTPUT
+          else
+            echo "pushed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        id: pr
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL=$(gh pr create \
+            --title "Claude Code: ${{ inputs.task_prompt }}" \
+            --body "Automated changes by Claude Code.\n\n**Task:** ${{ inputs.task_prompt }}\n**Run ID:** ${{ inputs.run_id }}" \
+            --base main \
+            --head ${{ inputs.branch_name }})
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+
+      - name: Report results
+        if: always()
+        run: |
+          curl -X POST "${{ inputs.callback_url }}" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Secret: ${{ secrets.TASK_MANAGER_WEBHOOK_SECRET }}" \
+            -d '{
+              "run_id": "${{ inputs.run_id }}",
+              "status": "${{ job.status }}",
+              "workflow_run_id": ${{ github.run_id }},
+              "workflow_run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "pr_url": "${{ steps.pr.outputs.pr_url || '' }}"
+            }'
