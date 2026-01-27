@@ -341,6 +341,19 @@ jobs:
                         )}
                       </div>
                     </div>
+
+                    <div className="mt-4">
+                      <p className="font-medium text-text-primary mb-2">Step 3: Enable workflow permissions</p>
+                      <p className="mb-2">Allow GitHub Actions to create pull requests:</p>
+                      <ol className="list-decimal list-inside space-y-1 text-text-secondary">
+                        <li>Go to your repository <span className="text-text-primary">Settings</span></li>
+                        <li>Click <span className="text-text-primary">Actions</span> → <span className="text-text-primary">General</span> in the sidebar</li>
+                        <li>Scroll to <span className="text-text-primary">Workflow permissions</span></li>
+                        <li>Select <span className="text-text-primary">&quot;Read and write permissions&quot;</span></li>
+                        <li>Check <span className="text-text-primary">&quot;Allow GitHub Actions to create and approve pull requests&quot;</span></li>
+                        <li>Click <span className="text-text-primary">Save</span></li>
+                      </ol>
+                    </div>
                   </div>
                 </div>
               )}
