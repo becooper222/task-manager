@@ -267,9 +267,12 @@ jobs:
 
               {showWorkflowInstructions && (
                 <div className="p-4 bg-secondary rounded-lg space-y-4">
-                  <p className="text-text-primary">
-                    To enable Claude Code integration, add this workflow file to your repository:
-                  </p>
+                  <div>
+                    <p className="font-medium text-text-primary mb-2">Step 1: Add the workflow file</p>
+                    <p className="text-sm text-text-secondary">
+                      Create this file in your repository to enable Claude Code integration:
+                    </p>
+                  </div>
                   <p className="text-sm text-text-secondary">
                     File path: <code className="bg-accent px-1 rounded">.github/workflows/claude-code.yml</code>
                   </p>
@@ -284,28 +287,60 @@ jobs:
                       Copy
                     </button>
                   </div>
-                  <div className="text-sm text-text-secondary space-y-2">
-                    <p className="font-medium text-text-primary">Required repository secrets:</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      <li><code className="bg-accent px-1 rounded">ANTHROPIC_API_KEY</code> - Your Anthropic API key</li>
-                      <li><code className="bg-accent px-1 rounded">TASK_MANAGER_WEBHOOK_SECRET</code> - See value below</li>
-                    </ul>
-                    {linkedRepo.webhook_secret && (
-                      <div className="mt-3 p-3 bg-background rounded-md">
-                        <p className="font-medium text-text-primary mb-1">Your Webhook Secret:</p>
-                        <div className="flex items-center gap-2">
-                          <code className="text-xs bg-accent px-2 py-1 rounded break-all flex-1">
-                            {linkedRepo.webhook_secret}
-                          </code>
-                          <button
-                            onClick={() => navigator.clipboard.writeText(linkedRepo.webhook_secret!)}
-                            className="px-2 py-1 text-xs bg-accent rounded hover:bg-primary shrink-0"
-                          >
-                            Copy
-                          </button>
-                        </div>
+                  <div className="text-sm text-text-secondary space-y-3">
+                    <div>
+                      <p className="font-medium text-text-primary mb-2">Step 2: Add repository secrets</p>
+                      <p className="mb-2">Go to your repository on GitHub, then navigate to:</p>
+                      <p className="bg-background px-2 py-1 rounded text-xs mb-2">
+                        Settings → Secrets and variables → Actions → New repository secret
+                      </p>
+                      <p>Add the following two secrets:</p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="p-3 bg-background rounded-md">
+                        <p className="font-medium text-text-primary">
+                          <code className="bg-accent px-1 rounded">ANTHROPIC_API_KEY</code>
+                        </p>
+                        <p className="mt-1 text-text-secondary">
+                          Your Anthropic API key for Claude. To get one:
+                        </p>
+                        <ol className="list-decimal list-inside mt-2 space-y-1 text-text-secondary">
+                          <li>Go to <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">console.anthropic.com</a></li>
+                          <li>Sign in or create an account</li>
+                          <li>Navigate to <span className="text-text-primary">API Keys</span> in the left sidebar</li>
+                          <li>Click <span className="text-text-primary">Create Key</span> and copy the key</li>
+                        </ol>
+                        <p className="mt-2 text-yellow-400/80 text-xs">
+                          Note: You&apos;ll need to add billing information to your Anthropic account.
+                        </p>
                       </div>
-                    )}
+
+                      <div className="p-3 bg-background rounded-md">
+                        <p className="font-medium text-text-primary">
+                          <code className="bg-accent px-1 rounded">TASK_MANAGER_WEBHOOK_SECRET</code>
+                        </p>
+                        <p className="mt-1 text-text-secondary">
+                          This secret allows the GitHub Action to securely report results back to this app.
+                        </p>
+                        {linkedRepo.webhook_secret && (
+                          <div className="mt-3 p-2 bg-accent/30 rounded border border-accent">
+                            <p className="text-xs text-text-secondary mb-1">Your webhook secret (click to copy):</p>
+                            <div className="flex items-center gap-2">
+                              <code className="text-xs bg-accent px-2 py-1 rounded break-all flex-1 font-mono">
+                                {linkedRepo.webhook_secret}
+                              </code>
+                              <button
+                                onClick={() => navigator.clipboard.writeText(linkedRepo.webhook_secret!)}
+                                className="px-2 py-1 text-xs bg-accent rounded hover:bg-primary shrink-0"
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

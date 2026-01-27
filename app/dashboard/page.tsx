@@ -44,6 +44,7 @@ export default function Dashboard() {
   const [categoryRepos, setCategoryRepos] = useState<Record<string, CategoryGitHubRepo>>({})
   const [githubSettingsCategoryId, setGithubSettingsCategoryId] = useState<string | null>(null)
   const [claudeCodeTaskId, setClaudeCodeTaskId] = useState<string | null>(null)
+  const [claudeMode, setClaudeMode] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -340,8 +341,26 @@ export default function Dashboard() {
     }
   }
 
-  const filteredTasks = selectedCategory === 'overview' 
-    ? tasks 
+  // Separate categories into Claude-enabled and standard
+  const claudeCategories = categories.filter(cat => categoryRepos[cat.id])
+  const standardCategories = categories.filter(cat => !categoryRepos[cat.id])
+  const displayedCategories = claudeMode ? claudeCategories : standardCategories
+  const previewCategories = claudeMode ? standardCategories : claudeCategories
+  const displayedCategoryIds = new Set(displayedCategories.map(c => c.id))
+
+  // Reset to overview when switching modes if current selection isn't in the new mode
+  useEffect(() => {
+    if (selectedCategory && selectedCategory !== 'overview') {
+      const isInDisplayedCategories = displayedCategories.some(c => c.id === selectedCategory)
+      if (!isInDisplayedCategories) {
+        setSelectedCategory('overview')
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claudeMode])
+
+  const filteredTasks = selectedCategory === 'overview'
+    ? tasks.filter(task => displayedCategoryIds.has(task.category_id))
     : tasks.filter(task => task.category_id === selectedCategory)
 
   const completedTasks = filteredTasks.filter(task => task.completed)
@@ -543,6 +562,64 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Mode Toggle */}
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setClaudeMode(false)}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                !claudeMode
+                  ? 'bg-accent text-text-primary'
+                  : 'bg-secondary text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              Tasks ({standardCategories.length})
+            </button>
+            <button
+              onClick={() => setClaudeMode(true)}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1.5 ${
+                claudeMode
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-secondary text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path d="M15.98 1.804a1 1 0 00-1.96 0l-.24 1.192a1 1 0 01-.784.785l-1.192.238a1 1 0 000 1.962l1.192.238a1 1 0 01.785.785l.238 1.192a1 1 0 001.962 0l.238-1.192a1 1 0 01.785-.785l1.192-.238a1 1 0 000-1.962l-1.192-.238a1 1 0 01-.785-.785l-.238-1.192zM6.949 5.684a1 1 0 00-1.898 0l-.683 2.051a1 1 0 01-.633.633l-2.051.683a1 1 0 000 1.898l2.051.684a1 1 0 01.633.632l.683 2.051a1 1 0 001.898 0l.683-2.051a1 1 0 01.633-.633l2.051-.683a1 1 0 000-1.898l-2.051-.683a1 1 0 01-.633-.633L6.95 5.684zM13.949 13.684a1 1 0 00-1.898 0l-.184.551a1 1 0 01-.632.633l-.551.183a1 1 0 000 1.898l.551.183a1 1 0 01.633.633l.183.551a1 1 0 001.898 0l.184-.551a1 1 0 01.632-.633l.551-.183a1 1 0 000-1.898l-.551-.184a1 1 0 01-.633-.632l-.183-.551z" />
+              </svg>
+              Claude ({claudeCategories.length})
+            </button>
+          </div>
+
+          {/* Preview of other mode's categories */}
+          {previewCategories.length > 0 && (
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <span className="hidden sm:inline">
+                {claudeMode ? 'Tasks:' : 'Claude:'}
+              </span>
+              <div className="flex gap-1 flex-wrap max-w-xs sm:max-w-md">
+                {previewCategories.slice(0, 4).map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      setClaudeMode(!claudeMode)
+                      setSelectedCategory(cat.id)
+                    }}
+                    className="px-2 py-0.5 text-xs bg-secondary/50 rounded hover:bg-secondary truncate max-w-[80px] sm:max-w-[120px]"
+                    title={cat.name}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+                {previewCategories.length > 4 && (
+                  <span className="px-2 py-0.5 text-xs text-text-secondary">
+                    +{previewCategories.length - 4}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -551,7 +628,7 @@ export default function Dashboard() {
           <div className="flex space-x-2 mb-6 bg-primary p-2 rounded-lg shadow overflow-x-auto">
             <button
               onClick={() => setSelectedCategory('overview')}
-              className={`px-4 py-2 rounded-md ${
+              className={`px-4 py-2 rounded-md whitespace-nowrap ${
                 selectedCategory === 'overview'
                   ? 'bg-accent text-text-primary'
                   : 'bg-secondary hover:bg-accent text-text-primary'
@@ -560,10 +637,10 @@ export default function Dashboard() {
               Overview
             </button>
             <SortableContext
-              items={categories.map((cat) => cat.id)}
+              items={displayedCategories.map((cat) => cat.id)}
               strategy={horizontalListSortingStrategy}
             >
-              {categories.map((category) => (
+              {displayedCategories.map((category) => (
                 <SortableCategory
                   key={category.id}
                   category={category}
@@ -575,7 +652,7 @@ export default function Dashboard() {
                 />
               ))}
             </SortableContext>
-            
+
             {showCategoryInput ? (
               <div className="flex flex-col gap-2">
                 <div className="flex space-x-2">
@@ -624,7 +701,7 @@ export default function Dashboard() {
             ) : (
               <button
                 onClick={() => setShowCategoryInput(true)}
-                className="px-4 py-2 rounded-md bg-secondary text-text-primary hover:bg-accent"
+                className="px-4 py-2 rounded-md bg-secondary text-text-primary hover:bg-accent whitespace-nowrap"
               >
                 + Add Category
               </button>
@@ -648,7 +725,7 @@ export default function Dashboard() {
               required
             >
               <option value="" disabled>Select category</option>
-              {categories.map((category) => (
+              {displayedCategories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
                 </option>
