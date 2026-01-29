@@ -1053,16 +1053,21 @@ function TaskList({
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
 
-  // Collapse expanded task name when clicking outside the task list
+  // Load expanded task ID from localStorage on mount
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!listRef.current) return
-      if (expandedTaskId && !listRef.current.contains(event.target as Node)) {
-        setExpandedTaskId(null)
-      }
+    const stored = localStorage.getItem('expandedTaskId')
+    if (stored) {
+      setExpandedTaskId(stored)
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Save expanded task ID to localStorage whenever it changes
+  useEffect(() => {
+    if (expandedTaskId) {
+      localStorage.setItem('expandedTaskId', expandedTaskId)
+    } else {
+      localStorage.removeItem('expandedTaskId')
+    }
   }, [expandedTaskId])
 
   const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
