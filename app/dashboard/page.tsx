@@ -1050,25 +1050,30 @@ function TaskList({
   const [editingTask, setEditingTask] = useState<string | null>(null)
   const [editedTaskName, setEditedTaskName] = useState('')
   const [editedTaskDate, setEditedTaskDate] = useState('')
-  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set())
   const listRef = useRef<HTMLDivElement | null>(null)
 
-  // Load expanded task ID from localStorage on mount
+  // Load expanded task IDs from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem('expandedTaskId')
+    const stored = localStorage.getItem('expandedTaskIds')
     if (stored) {
-      setExpandedTaskId(stored)
+      try {
+        const parsed = JSON.parse(stored)
+        setExpandedTaskIds(new Set(parsed))
+      } catch (e) {
+        console.error('Error parsing expandedTaskIds from localStorage:', e)
+      }
     }
   }, [])
 
-  // Save expanded task ID to localStorage whenever it changes
+  // Save expanded task IDs to localStorage whenever it changes
   useEffect(() => {
-    if (expandedTaskId) {
-      localStorage.setItem('expandedTaskId', expandedTaskId)
+    if (expandedTaskIds.size > 0) {
+      localStorage.setItem('expandedTaskIds', JSON.stringify(Array.from(expandedTaskIds)))
     } else {
-      localStorage.removeItem('expandedTaskId')
+      localStorage.removeItem('expandedTaskIds')
     }
-  }, [expandedTaskId])
+  }, [expandedTaskIds])
 
   const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
     try {
@@ -1181,12 +1186,20 @@ function TaskList({
                       type="button"
                       className={`text-left w-full cursor-pointer transition-all ${
                         task.completed ? 'line-through text-text-secondary' : 'text-text-primary'
-                      } ${expandedTaskId === task.id ? 'whitespace-normal' : 'truncate'}`}
+                      } ${expandedTaskIds.has(task.id) ? 'whitespace-normal' : 'truncate'}`}
                       onClick={(e) => {
                         e.stopPropagation()
-                        setExpandedTaskId(prev => prev === task.id ? null : task.id)
+                        setExpandedTaskIds(prev => {
+                          const newSet = new Set(prev)
+                          if (newSet.has(task.id)) {
+                            newSet.delete(task.id)
+                          } else {
+                            newSet.add(task.id)
+                          }
+                          return newSet
+                        })
                       }}
-                      title={expandedTaskId === task.id ? 'Click to collapse' : 'Click to expand'}
+                      title={expandedTaskIds.has(task.id) ? 'Click to collapse' : 'Click to expand'}
                     >
                       {task.name}
                     </button>
