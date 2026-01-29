@@ -1128,6 +1128,17 @@ function TaskList({
                       type="text"
                       value={editedTaskName}
                       onChange={(e) => setEditedTaskName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleTaskUpdate(task.id, {
+                            name: editedTaskName,
+                            date: editedTaskDate
+                          })
+                        }
+                        if (e.key === 'Escape') {
+                          setEditingTask(null)
+                        }
+                      }}
                       className="flex-grow p-1 bg-secondary border border-accent rounded-md text-text-primary"
                       autoFocus
                     />
@@ -1135,6 +1146,17 @@ function TaskList({
                       type="date"
                       value={editedTaskDate}
                       onChange={(e) => setEditedTaskDate(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleTaskUpdate(task.id, {
+                            name: editedTaskName,
+                            date: editedTaskDate
+                          })
+                        }
+                        if (e.key === 'Escape') {
+                          setEditingTask(null)
+                        }
+                      }}
                       className="p-1 bg-secondary border border-accent rounded-md text-text-primary"
                     />
                     <button
