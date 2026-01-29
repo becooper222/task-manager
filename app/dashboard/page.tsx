@@ -1053,7 +1053,7 @@ function TaskList({
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
 
-  // Collapse expanded name when clicking outside (mobile-focused behavior)
+  // Collapse expanded task name when clicking outside the task list
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (!listRef.current) return
@@ -1152,15 +1152,14 @@ function TaskList({
                   <>
                     <button
                       type="button"
-                      className={`text-left w-full ${task.completed ? 'line-through text-text-secondary' : 'text-text-primary'} 
-                        sm:truncate ${expandedTaskId === task.id ? 'line-clamp-none' : 'line-clamp-2'}`}
+                      className={`text-left w-full cursor-pointer transition-all ${
+                        task.completed ? 'line-through text-text-secondary' : 'text-text-primary'
+                      } ${expandedTaskId === task.id ? 'whitespace-normal' : 'truncate'}`}
                       onClick={(e) => {
-                        // Only expand on small screens to avoid altering desktop UX
-                        if (window.matchMedia && window.matchMedia('(max-width: 640px)').matches) {
-                          e.stopPropagation()
-                          setExpandedTaskId(prev => prev === task.id ? null : task.id)
-                        }
+                        e.stopPropagation()
+                        setExpandedTaskId(prev => prev === task.id ? null : task.id)
                       }}
+                      title={expandedTaskId === task.id ? 'Click to collapse' : 'Click to expand'}
                     >
                       {task.name}
                     </button>
