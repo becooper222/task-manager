@@ -9,6 +9,7 @@ import { Category, Task, CategoryGitHubRepo } from '@/lib/types'
 import ShareCategoryModal from './ShareCategoryModal'
 import GitHubSettingsModal from './GitHubSettingsModal'
 import ClaudeCodeRunsModal from './ClaudeCodeRunsModal'
+import TaskAttachmentsModal from './TaskAttachmentsModal'
 
 // Type for archived categories with task count
 type ArchivedCategory = Category & { task_count: number }
@@ -44,6 +45,7 @@ export default function Dashboard() {
   const [categoryRepos, setCategoryRepos] = useState<Record<string, CategoryGitHubRepo>>({})
   const [githubSettingsCategoryId, setGithubSettingsCategoryId] = useState<string | null>(null)
   const [claudeCodeTaskId, setClaudeCodeTaskId] = useState<string | null>(null)
+  const [attachmentsTaskId, setAttachmentsTaskId] = useState<string | null>(null)
   const [claudeMode, setClaudeMode] = useState(false)
 
   useEffect(() => {
@@ -755,6 +757,7 @@ export default function Dashboard() {
               categories={categories}
               categoryRepos={categoryRepos}
               onTriggerClaudeCode={(taskId) => setClaudeCodeTaskId(taskId)}
+              onOpenAttachments={(taskId) => setAttachmentsTaskId(taskId)}
             />
             <TaskList
               tasks={completedTasks}
@@ -765,6 +768,7 @@ export default function Dashboard() {
               categories={categories}
               categoryRepos={categoryRepos}
               onTriggerClaudeCode={(taskId) => setClaudeCodeTaskId(taskId)}
+              onOpenAttachments={(taskId) => setAttachmentsTaskId(taskId)}
             />
           </div>
         </div>
@@ -822,6 +826,14 @@ export default function Dashboard() {
           taskId={claudeCodeTaskId}
           taskName={tasks.find((t) => t.id === claudeCodeTaskId)?.name || ''}
           onClose={() => setClaudeCodeTaskId(null)}
+        />
+      )}
+
+      {attachmentsTaskId && (
+        <TaskAttachmentsModal
+          taskId={attachmentsTaskId}
+          taskName={tasks.find((t) => t.id === attachmentsTaskId)?.name || ''}
+          onClose={() => setAttachmentsTaskId(null)}
         />
       )}
     </div>
@@ -1036,6 +1048,7 @@ function TaskList({
   categories,
   categoryRepos,
   onTriggerClaudeCode,
+  onOpenAttachments,
 }: {
   tasks: Task[]
   onUpdate: () => void
@@ -1045,6 +1058,7 @@ function TaskList({
   categories: Category[]
   categoryRepos: Record<string, CategoryGitHubRepo>
   onTriggerClaudeCode: (taskId: string) => void
+  onOpenAttachments: (taskId: string) => void
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const [editingTask, setEditingTask] = useState<string | null>(null)
@@ -1211,6 +1225,18 @@ function TaskList({
                 )}
               </div>
               <div className="flex items-center gap-2 self-end sm:self-auto">
+                {!editingTask && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onOpenAttachments(task.id) }}
+                    className="p-1 text-blue-400 hover:text-blue-300 focus:outline-none"
+                    aria-label="Manage attachments"
+                    title="Manage attachments"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                      <path fillRule="evenodd" d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                )}
                 {!editingTask && categoryRepos[task.category_id] && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onTriggerClaudeCode(task.id) }}

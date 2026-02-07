@@ -4,6 +4,8 @@ import { getOrCreateAppUserId, requireSessionUser } from '@/lib/auth-helpers'
 import { getUserRoleForCategory, canEdit } from '@/lib/permissions'
 import { decrypt } from '@/lib/encryption'
 import { createOctokit } from '@/lib/github'
+import { getTaskAttachments, getAttachmentUrl } from '@/lib/file-helpers'
+import { createChangelogEntry, generateClaudeCodeDescription } from '@/lib/changelog-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,13 +58,40 @@ export async function POST(request: Request) {
     const branchName = `claude-code/${task_id.slice(0, 8)}-${Date.now()}`
     const prompt = task.name
 
+    // Get task attachments
+    const attachments = await getTaskAttachments(task_id)
+    const attachmentUrls: string[] = []
+    const attachmentContext: { name: string; url: string; type: string }[] = []
+
+    // Generate signed URLs for attachments (valid for 1 hour)
+    for (const attachment of attachments) {
+      const url = await getAttachmentUrl(attachment.storage_path, 3600)
+      if (url) {
+        attachmentUrls.push(url)
+        attachmentContext.push({
+          name: attachment.file_name,
+          url,
+          type: attachment.mime_type || 'unknown',
+        })
+      }
+    }
+
+    // Build enhanced prompt with attachment context
+    let enhancedPrompt = prompt
+    if (attachmentContext.length > 0) {
+      enhancedPrompt += '\n\nAttached files for context:'
+      attachmentContext.forEach((att) => {
+        enhancedPrompt += `\n- ${att.name} (${att.type}): ${att.url}`
+      })
+    }
+
     const { data: run, error: runErr } = await supabaseAdmin
       .from('claude_code_runs')
       .insert({
         task_id,
         category_id: task.category_id,
         triggered_by: appUserId,
-        prompt,
+        prompt: enhancedPrompt,
         repo_full_name: repoLink.repo_full_name,
         branch_name: branchName,
         status: 'pending',
@@ -84,7 +113,7 @@ export async function POST(request: Request) {
         workflow_id: 'claude-code.yml',
         ref: repoLink.default_branch,
         inputs: {
-          task_prompt: prompt,
+          task_prompt: enhancedPrompt,
           run_id: run.id,
           callback_url: callbackUrl,
           branch_name: branchName,
@@ -95,6 +124,23 @@ export async function POST(request: Request) {
         .from('claude_code_runs')
         .update({ status: 'queued' })
         .eq('id', run.id)
+
+      // Create changelog entry
+      await createChangelogEntry({
+        eventType: 'claude_code_triggered',
+        entityType: 'claude_code_run',
+        entityId: run.id,
+        userId: appUserId,
+        categoryId: task.category_id,
+        description: generateClaudeCodeDescription('triggered', task.name, undefined, user.email || undefined),
+        metadata: {
+          task_id,
+          task_name: task.name,
+          repo_full_name: repoLink.repo_full_name,
+          branch_name: branchName,
+          attachment_count: attachmentContext.length,
+        },
+      })
 
       return NextResponse.json({ run_id: run.id, status: 'queued' })
     } catch (workflowErr: unknown) {

@@ -48,6 +48,12 @@ Important: Supabase service role key is used for all API operations (bypasses RL
 **claude_code_runs** - Claude Code execution history
 - `id`, `task_id`, `category_id`, `triggered_by`, `prompt`, `status`, `github_pr_url`, `summary`
 
+**task_attachments** - File attachments for tasks
+- `id`, `task_id`, `uploaded_by`, `file_name`, `file_size`, `storage_path`, `mime_type`
+
+**task_manager_changelog** - Activity tracking and audit log
+- `id`, `event_type`, `entity_type`, `entity_id`, `user_id`, `category_id`, `description`, `metadata`
+
 Key design: Archive status is per-membership, not per-category. Users can independently archive shared categories.
 
 ### Permission Model
@@ -64,12 +70,16 @@ canAdmin(role) // owner only
 - `lib/auth-helpers.ts` - `requireSessionUser()`, `getOrCreateAppUserId()`
 - `lib/supabase-admin.ts` - Server-side Supabase client (service role)
 - `lib/permissions.ts` - Role checks for category access
-- `lib/types.ts` - TypeScript types: `Category`, `Task`, `CategoryRole`, `CategoryMember`, `ClaudeCodeRun`
+- `lib/types.ts` - TypeScript types: `Category`, `Task`, `CategoryRole`, `CategoryMember`, `ClaudeCodeRun`, `TaskAttachment`, `ChangelogEntry`
 - `lib/github.ts` - GitHub OAuth helpers and Octokit client
 - `lib/encryption.ts` - AES-256-GCM encryption for storing GitHub tokens
+- `lib/file-helpers.ts` - File upload, download, validation, and storage management
+- `lib/changelog-helpers.ts` - Activity logging and natural language description generation
 - `app/dashboard/page.tsx` - Main UI (client component with all task/category state)
 - `app/dashboard/GitHubSettingsModal.tsx` - Link repos to categories
 - `app/dashboard/ClaudeCodeRunsModal.tsx` - View and trigger Claude Code runs
+- `app/dashboard/TaskAttachmentsModal.tsx` - Upload and manage task file attachments
+- `app/dashboard/ChangelogModal.tsx` - View activity logs and change history
 - `middleware.ts` - Auth0 middleware protecting `/dashboard/*`
 
 ### API Routes
@@ -83,6 +93,16 @@ Categories:
 Tasks:
 - `GET/POST /api/tasks` - List / Create
 - `PUT/DELETE /api/tasks/[id]` - Update / Delete
+- `GET/POST /api/tasks/[id]/attachments` - List / Upload attachments for a task
+
+Attachments:
+- `GET /api/attachments/[id]` - Get signed download URL for attachment
+- `DELETE /api/attachments/[id]` - Delete an attachment
+
+Changelog:
+- `GET /api/changelog?category_id=xxx` - Get category activity log
+- `GET /api/changelog?user=true` - Get user's activity
+- `GET /api/changelog?recent=true` - Get recent activity across accessible categories
 
 Backup:
 - `GET /api/backup/export` - Export to Excel
@@ -124,6 +144,8 @@ NEXT_PUBLIC_APP_URL           # For OAuth callback URLs
 
 Categories can be linked to GitHub repositories. Tasks in linked categories show a trigger button (sparkle icon) that starts a Claude Code run via GitHub Actions.
 
+**File Attachments:** Tasks support file uploads (images, documents, archives, code files). When triggering Claude Code, attachments are automatically included in the prompt with secure download URLs, providing rich context for AI-assisted development.
+
 **Setup requirements:**
 1. Create GitHub OAuth App and set `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET`
 2. Generate 32-byte encryption key: `openssl rand -hex 32`
@@ -131,3 +153,14 @@ Categories can be linked to GitHub repositories. Tasks in linked categories show
 4. Category owner links a repo via GitHub Settings
 5. User adds `.github/workflows/claude-code.yml` workflow to repo
 6. Repo needs secrets: `ANTHROPIC_API_KEY`, `TASK_MANAGER_WEBHOOK_SECRET`
+7. Run database migrations to set up file attachments and changelog tables
+
+**Supported File Types:**
+- Images: JPG, PNG, HEIC, HEIF, WebP, GIF
+- Documents: PDF, DOCX, DOC, Markdown, TXT, HTML
+- Archives: ZIP, GZIP, TAR
+- Code: JS, PY, JSON, CSS
+
+**Activity Tracking:** All significant events (task changes, file uploads, Claude Code runs, member changes) are logged to `task_manager_changelog` with natural language descriptions for audit and transparency.
+
+**Documentation:** See `CHANGELOG_FEATURE_SUMMARY.md` for detailed feature documentation and `docs/FILE_UPLOAD_INTEGRATION.md` for developer integration guide.
