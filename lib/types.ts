@@ -18,6 +18,7 @@ export type Task = {
   favorited: boolean
   inserted_at: string
   updated_at: string
+  claude_code_run_count?: number
 }
 
 export type CategoryRole = 'owner' | 'editor' | 'viewer'
