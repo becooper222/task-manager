@@ -25,7 +25,32 @@ export async function GET() {
       .order('date', { ascending: true })
 
     if (tasksError) throw tasksError
-    return NextResponse.json(tasks || [])
+
+    // Fetch Claude Code run counts for all tasks
+    const taskIds = (tasks || []).map((t: any) => t.id)
+    let runCounts: Record<string, number> = {}
+
+    if (taskIds.length > 0) {
+      const { data: runs, error: runsError } = await supabaseAdmin
+        .from('claude_code_runs')
+        .select('task_id')
+        .in('task_id', taskIds)
+
+      if (!runsError && runs) {
+        runCounts = runs.reduce((acc: Record<string, number>, run: any) => {
+          acc[run.task_id] = (acc[run.task_id] || 0) + 1
+          return acc
+        }, {})
+      }
+    }
+
+    // Add run counts to tasks
+    const tasksWithCounts = (tasks || []).map((task: any) => ({
+      ...task,
+      claude_code_run_count: runCounts[task.id] || 0,
+    }))
+
+    return NextResponse.json(tasksWithCounts)
   } catch (e: any) {
     console.error('GET /api/tasks error:', e)
     return NextResponse.json({ error: e.message }, { status: e.message === 'Unauthorized' ? 401 : 500 })
