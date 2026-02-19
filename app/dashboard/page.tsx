@@ -124,6 +124,12 @@ export default function Dashboard() {
       const data = await res.json()
       if (data.repo) {
         setCategoryRepos((prev) => ({ ...prev, [categoryId]: data.repo }))
+      } else {
+        setCategoryRepos((prev) => {
+          const next = { ...prev }
+          delete next[categoryId]
+          return next
+        })
       }
     } catch (error) {
       console.error('Error fetching category repo:', error)
@@ -348,7 +354,8 @@ export default function Dashboard() {
   const previewCategories = claudeMode ? standardCategories : claudeCategories
   const displayedCategoryIds = new Set(displayedCategories.map(c => c.id))
 
-  // Reset to overview when switching modes if current selection isn't in the new mode
+  // Reset to overview when switching modes or when a repo is unlinked and the selected
+  // category moves to the other group
   useEffect(() => {
     if (selectedCategory && selectedCategory !== 'overview') {
       const isInDisplayedCategories = displayedCategories.some(c => c.id === selectedCategory)
@@ -357,7 +364,7 @@ export default function Dashboard() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claudeMode])
+  }, [claudeMode, categoryRepos])
 
   const filteredTasks = selectedCategory === 'overview'
     ? tasks.filter(task => displayedCategoryIds.has(task.category_id))
