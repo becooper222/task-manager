@@ -123,6 +123,15 @@ Claude Code:
 - `POST /api/claude-code/webhook` - Receive results from GitHub Action
 - `GET /api/claude-code/runs?task_id=` - List runs for a task
 
+### J-Box
+
+`/jbox` (Auth0-protected, added to middleware matcher) is a private page for
+sending messages to the J-Box, a Raspberry Pi device (see the J-Box project
+in the Projects folder). Messages live in `jbox_messages` (RLS enabled, no
+policies — service-role access only). The device polls `/api/jbox/device`
+authenticated by the `JBOX_DEVICE_TOKEN` env var (bearer token), and posts
+back delivered/read/heart status.
+
 ### Environment Variables
 
 ```
@@ -138,6 +147,7 @@ GITHUB_CLIENT_ID
 GITHUB_CLIENT_SECRET
 TOKEN_ENCRYPTION_KEY          # 32-byte hex string for AES-256
 NEXT_PUBLIC_APP_URL           # For OAuth callback URLs
+JBOX_DEVICE_TOKEN             # Shared secret for the J-Box device API (openssl rand -hex 32)
 ```
 
 ### Claude Code Integration
