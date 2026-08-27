@@ -79,4 +79,46 @@ export type ClaudeCodeRun = {
   error_message: string | null
   inserted_at: string
   updated_at: string
+}
+
+// File Attachment Types
+
+export type TaskAttachment = {
+  id: string
+  task_id: string
+  uploaded_by: string
+  file_name: string
+  file_type: string
+  file_size: number
+  storage_path: string
+  mime_type: string | null
+  inserted_at: string
+  updated_at: string
+}
+
+export type ChangelogEventType =
+  | 'task_created'
+  | 'task_updated'
+  | 'task_completed'
+  | 'task_deleted'
+  | 'attachment_added'
+  | 'attachment_deleted'
+  | 'category_created'
+  | 'category_updated'
+  | 'category_archived'
+  | 'claude_code_triggered'
+  | 'claude_code_completed'
+  | 'member_added'
+  | 'member_removed'
+
+export type ChangelogEntry = {
+  id: string
+  event_type: ChangelogEventType
+  entity_type: 'task' | 'category' | 'attachment' | 'claude_code_run' | 'member'
+  entity_id: string
+  user_id: string
+  category_id: string | null
+  description: string
+  metadata: Record<string, unknown> | null
+  inserted_at: string
 } 
