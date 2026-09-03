@@ -39,6 +39,9 @@ export default function JBoxPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [justSent, setJustSent] = useState(false)
+  // deleting a love note by mistake is unrecoverable, so the button arms first
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const load = useCallback(async () => {
@@ -83,6 +86,24 @@ export default function JBoxPage() {
       setError(e.message)
     } finally {
       setSending(false)
+    }
+  }
+
+  const remove = async (id: string) => {
+    setDeletingId(id)
+    setError(null)
+    try {
+      const res = await fetch(`/api/jbox/messages/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to delete')
+      }
+      setMessages((prev) => prev.filter((m) => m.id !== id))
+      setConfirmingId(null)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -133,14 +154,42 @@ export default function JBoxPage() {
             {messages.map((m) => {
               const status = statusFor(m)
               return (
-                <li key={m.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                <li key={m.id} className="group rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
                   <p className="whitespace-pre-wrap text-gray-800">{m.body}</p>
-                  <div className="mt-2 flex items-center justify-between text-xs">
+                  <div className="mt-2 flex items-center justify-between gap-3 text-xs">
                     <span className="text-gray-400">
                       {formatDate(m.created_at)}
                       {m.occasion ? ` · ${m.occasion}` : ''}
                     </span>
-                    <span className={status.cls}>{status.text}</span>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className={status.cls}>{status.text}</span>
+                      {confirmingId === m.id ? (
+                        <span className="flex items-center gap-2">
+                          <button
+                            onClick={() => remove(m.id)}
+                            disabled={deletingId === m.id}
+                            className="rounded-md bg-red-500 px-2 py-1 font-semibold text-white transition hover:bg-red-600 disabled:opacity-50"
+                          >
+                            {deletingId === m.id ? 'Deleting…' : 'Delete'}
+                          </button>
+                          <button
+                            onClick={() => setConfirmingId(null)}
+                            className="text-gray-500 underline-offset-2 hover:underline"
+                          >
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmingId(m.id)}
+                          aria-label="Delete this note"
+                          title="Delete this note"
+                          className="rounded-md px-1.5 py-0.5 text-base leading-none text-gray-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </li>
               )
